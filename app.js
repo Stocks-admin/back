@@ -46,6 +46,10 @@ app.get("/testVariation2", (req, res) => {
   res.status(200).send(test);
 });
 
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.listen(3000, () => {
   console.log("Press CTRL-C to stop");
 });
