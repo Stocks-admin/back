@@ -39,7 +39,7 @@ app.use("/transactions", transactions);
 app.use("/user", user);
 
 app.get("/checkDB", (req, res) => {
-  db.$queryRaw("SELECT 1 + 1 AS result;")
+  db.$queryRaw`SELECT 1 + 1 AS result;`
     .then((data) => {
       res.send(data);
     })
