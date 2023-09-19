@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -51,8 +51,8 @@ model user_portfolio {
 
 model user_wallet {
   user_id    Int      @id
-  amount     Float
-  updated_at DateTime
+  amount     Float    @db.Float
+  updated_at DateTime @db.DateTime(0)
 }
 
 view user_portfolio_updates {
