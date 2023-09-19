@@ -1,11 +1,13 @@
 import express from "express";
 import bodyParser from "body-parser";
+import { PrismaClient } from "@prisma/client";
 import currencies from "./routes/currencyRoutes.js";
 import stocks from "./routes/stockRoutes.js";
 import transactions from "./routes/transactionRoutes.js";
 import { calculateFIFO, calculateLIFO } from "./helpers/transactionHelpers.js";
 import user from "./routes/userRoutes.js";
 
+const db = new PrismaClient();
 const app = express();
 
 app.use((req, res, next) => {
@@ -36,14 +38,14 @@ app.use("/stocks", stocks);
 app.use("/transactions", transactions);
 app.use("/user", user);
 
-app.get("/testVariation", (req, res) => {
-  const test = calculateLIFO(1, "MELI");
-  res.status(200).send(test);
-});
-
-app.get("/testVariation2", (req, res) => {
-  const test = calculateFIFO(1, "MELI");
-  res.status(200).send(test);
+app.get("/checkDB", (req, res) => {
+  db.$queryRaw("SELECT 1 + 1 AS result;")
+    .then((data) => {
+      res.send(data);
+    })
+    .catch((e) => {
+      res.status(500).send(e.toString());
+    });
 });
 
 app.listen(3000, () => {
