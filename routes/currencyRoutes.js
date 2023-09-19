@@ -13,4 +13,19 @@ currencies.get("/dolar/:dolarType", async (req, res) => {
   }
 });
 
+currencies.get("/dolar", async (req, res) => {
+  try {
+    let dollarValue = {};
+    dollarValue = { ...dollarValue, blue: await getCurrentDolarValue("blue") };
+    dollarValue = { ...dollarValue, mep: await getCurrentDolarValue("mep") };
+    dollarValue = {
+      ...dollarValue,
+      oficial: await getCurrentDolarValue("oficial"),
+    };
+    res.status(200).send(dollarValue);
+  } catch (e) {
+    res.status(500).send(e.toString());
+  }
+});
+
 export default currencies;
