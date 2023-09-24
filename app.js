@@ -4,8 +4,8 @@ import { PrismaClient } from "@prisma/client";
 import currencies from "./routes/currencyRoutes.js";
 import stocks from "./routes/stockRoutes.js";
 import transactions from "./routes/transactionRoutes.js";
-import { calculateFIFO, calculateLIFO } from "./helpers/transactionHelpers.js";
 import user from "./routes/userRoutes.js";
+import auth from "./routes/authRoutes.js";
 
 const db = new PrismaClient();
 const app = express();
@@ -37,6 +37,7 @@ app.use("/currencies", currencies);
 app.use("/stocks", stocks);
 app.use("/transactions", transactions);
 app.use("/user", user);
+app.use("/auth", auth);
 
 app.get("/checkDB", (req, res) => {
   db.$queryRaw`SELECT 1 + 1 AS result;`

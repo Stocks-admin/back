@@ -17,7 +17,6 @@ export async function getUserWallet(user_id) {
         user_id,
       },
     });
-
     const newAmount =
       newTransactions?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
 
@@ -43,18 +42,18 @@ export async function getUserPortfolio(user_id) {
 
     const portfolio = await db.$queryRaw`
       SELECT
-          up.user_id,
-          up.symbol,
-          (up.amount + COALESCE(upd.amount, 0)) AS final_amount
+          COALESCE(up.user_id, upd.user_id) AS user_id,
+          COALESCE(up.symbol, upd.symbol) AS symbol,
+          (COALESCE(up.amount, 0) + COALESCE(upd.amount, 0)) AS final_amount
       FROM
           user_portfolio up
-      LEFT JOIN
+      FULL JOIN
           tmp_user_portfolio_updates upd
       ON
           up.user_id = upd.user_id AND up.symbol = upd.symbol
       WHERE
-          up.user_id = ${user_id};
-    `;
+          COALESCE(up.user_id, upd.user_id) = ${user_id};
+`;
 
     // DROP TEMPORARY TABLE IF EXISTS en PostgreSQL
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
@@ -76,12 +75,35 @@ export async function getUserPortfolio(user_id) {
   }
 }
 
+export async function getUserPortfolioValue(user_id) {
+  try {
+    const portfolio = await getUserPortfolio(user_id);
+    const portfolioValue = portfolio.reduce(
+      (acc, curr) => acc + curr.current_price * curr.final_amount,
+      0
+    );
+    return portfolioValue;
+  } catch (error) {
+    return 0;
+  }
+}
+
 export async function getUserInfo(user_id) {
   try {
     const wallet = await getUserWallet(user_id);
-    const portfolio = await getUserPortfolio(user_id);
+    const portfolio = await getUserPortfolioValue(user_id);
+    const userInfo = await db.user.findUnique({
+      where: {
+        user_id,
+      },
+      select: {
+        user_id: true,
+        email: true,
+      },
+    });
 
     return {
+      info: { ...userInfo },
       wallet,
       portfolio,
     };

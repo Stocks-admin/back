@@ -1,10 +1,11 @@
 import express from "express";
 import {
   createTransaction,
-  getAllTransactions,
+  getUserTotalTransactions,
   getUserTransactions,
 } from "../controllers/transactionController.js";
-import { calculateModes } from "../helpers/transactionHelpers.js";
+import { isAuthenticated } from "../middlewares.js";
+import jwt from "jsonwebtoken";
 
 const transactions = express.Router();
 // POST /user/signin
@@ -19,26 +20,29 @@ transactions.post("/createTransaction", async (req, res) => {
   }
 });
 
-transactions.get("/userTransactions/:userId", async (req, res) => {
+transactions.get("/userTransactions", isAuthenticated, async (req, res) => {
   try {
     const { offset, limit } = req.query;
-    const user_id = req.params.userId;
-    console.log(offset, limit);
+    const { authorization } = req.headers;
+    const access_token = authorization.split(" ")[1];
+    if (!access_token) {
+      return res.status(401).send({
+        message: "Missing access token. Unauthorized",
+      });
+    }
+    const payload = jwt.verify(access_token, process.env.JWT_ACCESS_SECRET);
+    if (!payload?.userId) {
+      return res.status(401).send({
+        message: "Unauthorized.",
+      });
+    }
     const resp = await getUserTransactions(
-      parseInt(user_id),
+      payload.userId,
       parseInt(offset) | 0,
       parseInt(limit) | 10
     );
-    res.status(200).send(resp);
-  } catch (e) {
-    res.status(500).send(e.toString());
-  }
-});
-
-transactions.get("/test", async (req, res) => {
-  try {
-    const resp = await calculateModes(1, "MELI");
-    res.status(200).send(resp);
+    const total = await getUserTotalTransactions(payload.userId);
+    res.status(200).send({ transactions: resp, total });
   } catch (e) {
     res.status(500).send(e.toString());
   }

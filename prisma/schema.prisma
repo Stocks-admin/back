@@ -35,8 +35,8 @@ model transactions {
 }
 
 model user {
-  user_id  Int    @id
-  email    String
+  user_id  Int    @id @default(autoincrement())
+  email    String @unique
   password String
 }
 
@@ -73,4 +73,15 @@ enum Transaction_type {
   sell
   deposit
   withdraw
+}
+
+model refresh_token {
+  id          String   @id @unique @default(uuid())
+  hashedToken String
+  user_id     Int
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([user_id], map: "user_id")
 }

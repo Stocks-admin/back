@@ -22,10 +22,7 @@ export async function getUserTransactions(user_id, offset = 0, limit) {
   });
 
   const promises = transactions.map(async (transaction) => {
-    if (
-      transaction.transaction_type === "buy" ||
-      transaction.transaction_type === "sell"
-    ) {
+    if (transaction.transaction_type === "sell") {
       return {
         ...transaction,
         variations: await calculateModes(
@@ -39,6 +36,12 @@ export async function getUserTransactions(user_id, offset = 0, limit) {
   });
 
   return await Promise.all(promises);
+}
+
+export async function getUserTotalTransactions(user_id) {
+  return await db.transactions.count({
+    where: { user_id },
+  });
 }
 
 export async function createTransaction(data) {
