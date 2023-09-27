@@ -88,7 +88,7 @@ auth.post("/register", async (req, res) => {
     await addRefreshTokenToWhitelist({
       jti,
       refreshToken,
-      userId: parseInt(user.user_id),
+      user_id: parseInt(user.user_id),
     });
     res.json({
       accessToken,
