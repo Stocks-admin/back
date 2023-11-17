@@ -50,6 +50,6 @@ app.get("/test-db", (req, res) => {
     });
 });
 
-app.listen(3001, () => {
+app.listen(process.env.AZURE_POSTGRESQL_PORT || 3001, () => {
   console.log("Press CTRL-C to stop");
 });
