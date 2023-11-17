@@ -8,14 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model symbols {
-  symbol     String   @id
-  full_name  String?
-  logo       String?
-  last_price Float
-  updated_at DateTime @default(now())
-}
-
 model iol_token {
   token_id      Int      @id @default(autoincrement())
   access_token  String
@@ -27,52 +19,38 @@ model iol_token {
 model transactions {
   transaction_id   Int              @id @default(autoincrement())
   user_id          Int
-  transaction_type Transaction_type
   symbol           String?
+  market           Market?
+  transaction_type Transaction_type
   symbol_price     Float?
   amount_sold      Float
   transaction_date DateTime         @default(now())
 }
 
+enum Market {
+  NYSE
+  NASDAQ
+  TSX
+}
+
 model user {
-  user_id  Int    @id @default(autoincrement())
-  email    String @unique
+  user_id  Int      @id @default(autoincrement())
+  email    String   @unique
   password String
+  name     String
+  phone    String?
+  created  DateTime @default(now())
+  updated  DateTime @default(now()) @updatedAt
 }
 
-model user_portfolio {
-  user_id    Int
-  symbol     String
-  amount     Float
-  updated_at DateTime
-
-  @@id([user_id, symbol])
-}
-
-model user_wallet {
-  user_id    Int      @id
-  amount     Float
-  updated_at DateTime
-}
-
-view user_portfolio_updates {
+model portfolio_snapshots {
   user_id Int
   symbol  String
-  amount  Float?
+  amount  Float
+  market  Market
+  date    DateTime @db.Date
 
-  @@id([user_id, symbol])
-}
-
-view user_wallet_updates {
-  user_id Int    @id
-  amount  Float?
-}
-
-enum Transaction_type {
-  buy
-  sell
-  deposit
-  withdraw
+  @@id([user_id, symbol, date])
 }
 
 model refresh_token {
@@ -84,4 +62,18 @@ model refresh_token {
   updatedAt   DateTime @updatedAt
 
   @@index([user_id], map: "user_id")
+}
+
+view portfolio_snapshots_updates {
+  user_id Int
+  symbol  String
+  market  Market
+  amount  Float?
+
+  @@id([user_id, symbol])
+}
+
+enum Transaction_type {
+  buy
+  sell
 }

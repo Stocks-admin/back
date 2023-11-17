@@ -11,7 +11,7 @@ const db = new PrismaClient();
 const app = express();
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, PUT, DELETE, OPTIONS"
@@ -20,6 +20,7 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, Origin"
   );
+  res.setHeader("Access-Control-Allow-Credentials", true);
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -39,7 +40,7 @@ app.use("/transactions", transactions);
 app.use("/user", user);
 app.use("/auth", auth);
 
-app.get("/checkDB", (req, res) => {
+app.get("/test-db", (req, res) => {
   db.$queryRaw`SELECT 1 + 1 AS result;`
     .then((data) => {
       res.send(data);
@@ -49,6 +50,6 @@ app.get("/checkDB", (req, res) => {
     });
 });
 
-app.listen(3000, () => {
+app.listen(3001, () => {
   console.log("Press CTRL-C to stop");
 });

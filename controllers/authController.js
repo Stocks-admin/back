@@ -30,12 +30,14 @@ export async function getUserByEmail(email) {
   }
 }
 
-export async function createUser(email, password) {
+export async function createUser(email, password, name, phone) {
   try {
     const user = await db.user.create({
       data: {
         email,
         password: hashSync(password, 10),
+        name,
+        phone,
       },
     });
     return user;

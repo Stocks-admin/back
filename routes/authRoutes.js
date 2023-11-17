@@ -16,6 +16,7 @@ import {
 } from "../utils/jwt.js";
 import jwt from "jsonwebtoken";
 import { getUserInfo } from "../controllers/userController.js";
+import errorMessages from "../constants/errorMessages.js";
 
 const auth = express.Router();
 
@@ -23,26 +24,22 @@ auth.post("/login", async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      res.status(500).send({
-        message: "You must provide an email and a password.",
-      });
-      throw new Error("You must provide an email and a password.");
+      throw new Error(errorMessages.user.missingInfo);
     }
 
     const existingUser = await getUserByEmail(email);
     if (!existingUser) {
-      res.status(403).send({
-        message: "Incorrect combination of username and email.",
+      return res.status(403).send({
+        message: errorMessages.user.invalidLogin,
       });
-      throw new Error("Incorrect combination of username and email.");
     }
 
     const validPassword = await compare(password, existingUser.password);
     if (!validPassword) {
       res.status(403).send({
-        message: "Incorrect combination of username and email.",
+        message: errorMessages.user.invalidLogin,
       });
-      throw new Error("Invalid login credentials.");
+      return;
     }
     const jti = uuidv4();
     const { accessToken, refreshToken } = generateTokens(existingUser, jti);
@@ -51,9 +48,9 @@ auth.post("/login", async (req, res, next) => {
       refreshToken,
       user_id: existingUser.user_id,
     });
+    const { password: userPass, ...user } = existingUser;
     res.json({
-      accessToken,
-      refreshToken,
+      user: { ...user, accessToken, refreshToken },
     });
   } catch (err) {
     next(err);
@@ -62,27 +59,27 @@ auth.post("/login", async (req, res, next) => {
 
 auth.post("/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name, phone } = req.body;
     if (!email || !password) {
-      throw new Error("Falta informacion.");
+      throw new Error(errorMessages.user.missingInfo);
     }
 
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
-      throw new Error("Email already in use.");
+      throw new Error(errorMessages.user.alreadyExists);
     }
 
-    const user = await createUser(email, password);
+    const user = await createUser(email, password, name, phone);
     if (!user) {
       res.status(400).send({
-        message: "Undefined error.",
+        message: errorMessages.default,
       });
     }
     const jti = uuidv4();
     const { accessToken, refreshToken } = generateTokens(user, jti);
     if (!accessToken || !refreshToken) {
       res.status(400).send({
-        message: "Error generating tokens.",
+        message: errorMessages.default,
       });
     }
     await addRefreshTokenToWhitelist({
@@ -104,7 +101,7 @@ auth.post("/refresh", async (req, res) => {
     const { refresh_token } = req.body;
     if (!refresh_token) {
       res.status(401).send({
-        message: "Missing refresh token. Unauthorized",
+        message: errorMessages.user.unauthorized,
       });
       return;
     }
@@ -113,7 +110,7 @@ auth.post("/refresh", async (req, res) => {
 
     if (!savedRefreshToken || savedRefreshToken.revoked === true) {
       res.status(401).send({
-        message: "refreshToken Revoked. Unauthorized.",
+        message: errorMessages.user.unauthorized,
       });
       return;
     }
@@ -121,7 +118,7 @@ auth.post("/refresh", async (req, res) => {
     const hashedToken = hashToken(refresh_token);
     if (hashedToken !== savedRefreshToken.hashedToken) {
       res.status(401).send({
-        message: "Wrong token. Unauthorized.",
+        message: errorMessages.user.unauthorized,
       });
       return;
     }
@@ -129,7 +126,7 @@ auth.post("/refresh", async (req, res) => {
     const user = await getUserById(payload.user_id);
     if (!user) {
       res.status(401).send({
-        message: "Different user. Unauthorized.",
+        message: errorMessages.user.unauthorized,
       });
       return;
     }
@@ -162,7 +159,7 @@ auth.get("/personalInfo", async (req, res) => {
     const access_token = authorization.split(" ")[1];
     if (!access_token) {
       res.status(401).send({
-        message: "Missing access token. Unauthorized",
+        message: errorMessages.user.unauthorized,
       });
       return;
     }
@@ -170,7 +167,7 @@ auth.get("/personalInfo", async (req, res) => {
     const user = await getUserInfo(payload.userId);
     if (!user) {
       res.status(401).send({
-        message: "User not found.",
+        message: errorMessages.user.notFound,
       });
       return;
     }
@@ -186,14 +183,14 @@ auth.post("/logout", async (req, res) => {
     const access_token = authorization.split(" ")[1];
     if (!access_token) {
       res.status(401).send({
-        message: "Missing access token. Unauthorized",
+        message: errorMessages.user.unauthorized,
       });
       return;
     }
     const payload = jwt.verify(access_token, process.env.JWT_ACCESS_SECRET);
     await revokeTokens(payload.userId);
     res.status(200).send({
-      message: "Logout successful.",
+      message: errorMessages.user.logout,
     });
   } catch (error) {
     res.status(500).send(error.toString());
