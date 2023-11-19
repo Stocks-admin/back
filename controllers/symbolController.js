@@ -1,56 +1,74 @@
 import { PrismaClient } from "@prisma/client";
 import axios from "axios";
-import finnhubClient from "../utils/finnhubClient.js";
-import {
-  fetchSymbolPriceByDateIOL,
-  fetchSymbolPriceIOL,
-} from "../utils/IOLClient.js";
 
-const db = new PrismaClient();
+const axiosInstance = axios.create({
+  baseURL: process.env.ARGDATA_API_URL,
+});
 
 export async function getSymbolPrice(symbol, market = "nASDAQ") {
   try {
-    const db_symbol = await db.symbols.findFirst({
-      where: {
-        symbol,
-      },
-    });
-
-    const timeDifferenceInDays =
-      (new Date() - new Date(db_symbol?.updated_at)) / (1000 * 60 * 60 * 24);
-
-    if (db_symbol && timeDifferenceInDays <= 1) {
-      return { price: db_symbol.last_price };
+    const resp = await axiosInstance.get(
+      `stocks/current-value/${symbol}?market=${market}`
+    );
+    if (resp.status === 200) {
+      return { price: resp.data.value, organization: resp.data.organization };
     } else {
-      const symbolPrice = await fetchSymbolPriceIOL(symbol, market);
-      await db.symbols.upsert({
-        where: {
-          symbol,
-        },
-        create: {
-          symbol,
-          updated_at: new Date(),
-          last_price: parseFloat(symbolPrice?.price),
-        },
-        update: {
-          updated_at: new Date(),
-          last_price: parseFloat(symbolPrice?.price),
-        },
-      });
-      return { price: parseFloat(symbolPrice?.price) };
+      throw new Error("Error al obtener el precio del simbolo");
     }
   } catch (error) {
-    console.log(error);
-    throw new Error("An error ocurred.");
+    throw error;
   }
 }
 
 export async function getSymbolPriceOnDate(symbol, market = "nASDAQ", date) {
   try {
-    const symbolPrice = await fetchSymbolPriceByDateIOL(symbol, market, date);
-    return { price: parseFloat(symbolPrice?.price) };
+    const resp = await axiosInstance.get(
+      `stocks/stock-on-date/${symbol}?market=${market}&date=${date}`
+    );
+    if (resp.status === 200) {
+      return resp.data;
+    } else {
+      throw new Error("Error al obtener el precio del simbolo");
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function getSymbolPriceBetweenDates(
+  symbol,
+  market = "nASDAQ",
+  dateFrom,
+  dateTo
+) {
+  try {
+    const resp = await axiosInstance.get(
+      `stocks/stock-on-date-range/${symbol}?market=${market}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+    );
+    if (resp.status === 200) {
+      return resp.data;
+    } else {
+      throw new Error("Error al obtener el precio del simbolo");
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function updateSymbolType(symbol, newType) {
+  //TODO
+}
+
+export async function doesSymbolExist(symbol) {
+  try {
+    const resp = await axiosInstance.get(`stocks/${symbol}`);
+    if (resp.status === 200) {
+      return true;
+    } else {
+      return false;
+    }
   } catch (error) {
     console.log(error);
-    throw new Error("An error ocurred.");
+    return false;
   }
 }

@@ -39,7 +39,6 @@ export const loginIOL = async () => {
 };
 
 export const refreshIOL = async () => {
-  console.log("REFRESH");
   const token = await db.iol_token.findUnique({
     where: {
       token_id: 1,
@@ -53,7 +52,6 @@ export const refreshIOL = async () => {
   });
 
   if (newRefresh.status !== 200) throw new Error("Error al refrescar token");
-  console.log("NEW REFRESH", newRefresh.data.access_token);
   await db.iol_token.update({
     where: {
       token_id: 1,

@@ -3,15 +3,19 @@ import {
   getSymbolPrice,
   getSymbolPriceOnDate,
 } from "../controllers/symbolController.js";
+import axios from "axios";
 
 const stocks = express.Router();
+
+const axiosInstance = axios.create({
+  baseURL: process.env.ARGDATA_API_URL,
+});
 // POST /user/signin
 
 stocks.get("/symbolValue/:symbol", async (req, res) => {
   try {
     const symbol = req.params.symbol;
-    const market = req.query.market;
-    const date = req.query.date;
+    const { market, date } = req.query;
     if (date) {
       const resp = await getSymbolPriceOnDate(symbol, market, date);
       res.status(200).send(resp);
@@ -21,6 +25,20 @@ stocks.get("/symbolValue/:symbol", async (req, res) => {
     }
   } catch (e) {
     res.status(500).send(e.toString());
+  }
+});
+
+stocks.get("/search", async (req, res) => {
+  try {
+    const { query } = req.query;
+    const resp = await axiosInstance.get(`stocks/search?query=${query}`);
+    if (resp.status === 200) {
+      res.status(200).send(resp.data);
+    } else {
+      res.status(200).send([]);
+    }
+  } catch (error) {
+    throw error;
   }
 });
 

@@ -4,14 +4,14 @@ import { PrismaClient } from "@prisma/client";
 import currencies from "./routes/currencyRoutes.js";
 import stocks from "./routes/stockRoutes.js";
 import transactions from "./routes/transactionRoutes.js";
-import { calculateFIFO, calculateLIFO } from "./helpers/transactionHelpers.js";
 import user from "./routes/userRoutes.js";
+import auth from "./routes/authRoutes.js";
 
 const db = new PrismaClient();
 const app = express();
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, PUT, DELETE, OPTIONS"
@@ -20,6 +20,7 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, Origin"
   );
+  res.setHeader("Access-Control-Allow-Credentials", true);
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -37,9 +38,10 @@ app.use("/currencies", currencies);
 app.use("/stocks", stocks);
 app.use("/transactions", transactions);
 app.use("/user", user);
+app.use("/auth", auth);
 
-app.get("/checkDB", (req, res) => {
-  db.$queryRaw("SELECT 1 + 1 AS result;")
+app.get("/test-db", (req, res) => {
+  db.$queryRaw`SELECT 1 + 1 AS result;`
     .then((data) => {
       res.send(data);
     })
@@ -48,6 +50,6 @@ app.get("/checkDB", (req, res) => {
     });
 });
 
-app.listen(3000, () => {
+app.listen(process.env.PORT || process.env.SERVER_PORT || 3001, () => {
   console.log("Press CTRL-C to stop");
 });
