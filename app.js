@@ -50,6 +50,22 @@ app.get("/test-db", (req, res) => {
     });
 });
 
+app.get("/add-to-db-test", async (req, res) => {
+  db.$queryRaw`CREATE TABLE Persons (
+      PersonID int,
+      LastName varchar(255),
+      FirstName varchar(255),
+      Address varchar(255),
+      City varchar(255)
+    );`
+    .then((data) => {
+      res.send(data);
+    })
+    .catch((e) => {
+      res.status(500).send(e.toString());
+    });
+});
+
 app.listen(process.env.PORT || process.env.SERVER_PORT || 3001, () => {
   console.log("Press CTRL-C to stop");
 });
