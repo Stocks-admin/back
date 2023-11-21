@@ -69,7 +69,6 @@ export async function getUserPortfolio(user_id) {
 
     const updatedPortfolio = await Promise.all(
       portfolio.map(async (stock) => {
-        console.log(stock);
         const current_price = await getSymbolPrice(stock.symbol);
         return {
           ...stock,

@@ -10,7 +10,6 @@ currencies.get("/dolar", async (req, res) => {
         res.status(200).send(data);
       })
       .catch((e) => {
-        console.log("data: ", data);
         res.status(500).send(e.toString());
       });
   } catch (e) {
