@@ -14,7 +14,7 @@ const app = express();
 const corsOptions = {
   origin: [
     "https://development.d2jiei2auzx96a.amplifyapp.com",
-    "https://production.d2jiei2auzx96a.amplifyapp.com/",
+    "https://production.d2jiei2auzx96a.amplifyapp.com",
   ],
   optionsSuccessStatus: 200,
   methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
