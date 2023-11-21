@@ -1,5 +1,6 @@
 import express from "express";
 import bodyParser from "body-parser";
+import cors from "cors";
 import { PrismaClient } from "@prisma/client";
 import currencies from "./routes/currencyRoutes.js";
 import stocks from "./routes/stockRoutes.js";
@@ -10,26 +11,17 @@ import auth from "./routes/authRoutes.js";
 const db = new PrismaClient();
 const app = express();
 
-app.use((req, res, next) => {
-  res.setHeader(
-    "Access-Control-Allow-Origin",
-    "https://development.d2jiei2auzx96a.amplifyapp.com"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PATCH, PUT, DELETE, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Origin"
-  );
-  res.setHeader("Access-Control-Allow-Credentials", true);
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+const corsOptions = {
+  origin: [
+    "https://development.d2jiei2auzx96a.amplifyapp.com",
+    "https://production.d2jiei2auzx96a.amplifyapp.com/",
+  ],
+  optionsSuccessStatus: 200,
+  methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
+  credentials: true,
+};
 
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
