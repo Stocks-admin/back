@@ -148,8 +148,7 @@ auth.post("/refresh", async (req, res) => {
       refreshToken: newRefreshToken,
     });
   } catch (err) {
-    console.log(err);
-    res.status(500).send(err.toString());
+    res.status(500).send(errorMessages.default);
   }
 });
 

@@ -65,7 +65,6 @@ export async function getUserPortfolio(user_id) {
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
 
     const portfolioPurchasePrice = await getPortfolioAveragePrice(user_id);
-
     const updatedPortfolio = await Promise.all(
       portfolio.map(async (stock) => {
         const current_price = await getSymbolPrice(stock.symbol);
@@ -79,7 +78,6 @@ export async function getUserPortfolio(user_id) {
         };
       })
     );
-
     return updatedPortfolio;
   } catch (error) {
     return [];
@@ -125,7 +123,6 @@ export async function generateSnapshots() {
       });
     }
   } catch (error) {
-    console.error("Error generating snapshots:", error);
   } finally {
     await prisma.$disconnect();
   }
