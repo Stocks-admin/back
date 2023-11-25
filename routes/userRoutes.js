@@ -30,7 +30,6 @@ user.get("/portfolio", isAuthenticated, async (req, res) => {
     const resp = await getUserPortfolio(payload.userId);
     res.status(200).send(resp);
   } catch (e) {
-    console.log("Error: ", e);
     res.status(500).send(e.toString());
   }
 });
@@ -64,7 +63,6 @@ user.get("/benchmark", isAuthenticated, async (req, res) => {
     const resp = await getUserBenchmark(payload.userId, interval);
     return res.status(200).send(resp);
   } catch (e) {
-    console.log("Error: ", e);
     res.status(500).send(e.toString());
   }
 });

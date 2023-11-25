@@ -20,7 +20,6 @@ import user from "../routes/userRoutes.js";
 const db = new PrismaClient();
 
 export async function getUserPortfolio(user_id) {
-  console.log("getUserPortfolio", user_id);
   try {
     // DROP TEMPORARY TABLE IF EXISTS en PostgreSQL
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
@@ -66,7 +65,6 @@ export async function getUserPortfolio(user_id) {
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
 
     const portfolioPurchasePrice = await getPortfolioAveragePrice(user_id);
-
     const updatedPortfolio = await Promise.all(
       portfolio.map(async (stock) => {
         const current_price = await getSymbolPrice(stock.symbol);
@@ -80,10 +78,9 @@ export async function getUserPortfolio(user_id) {
         };
       })
     );
-
     return updatedPortfolio;
   } catch (error) {
-    throw new Error(error);
+    return [];
   }
 }
 
@@ -126,7 +123,6 @@ export async function generateSnapshots() {
       });
     }
   } catch (error) {
-    console.error("Error generating snapshots:", error);
   } finally {
     await prisma.$disconnect();
   }
