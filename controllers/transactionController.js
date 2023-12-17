@@ -51,10 +51,13 @@ export async function getUserTransactions(
     }
   });
 
-  const finalTransactinos = await Promise.all(promises);
+  const finalTransactions = await Promise.all(promises);
+  const transactionAmount = await db.transactions.count({
+    where: whereConditions,
+  });
   return {
-    transactions: finalTransactinos,
-    total: finalTransactinos.length,
+    transactions: finalTransactions,
+    total: transactionAmount,
   };
 }
 
