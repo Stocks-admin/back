@@ -4,6 +4,7 @@ import {
   getSymbolPriceOnDate,
 } from "../controllers/symbolController.js";
 import axios from "axios";
+import errorMessages from "../constants/errorMessages.js";
 
 const stocks = express.Router();
 
@@ -14,7 +15,7 @@ const axiosInstance = axios.create({
 
 stocks.get("/symbolValue/:symbol", async (req, res) => {
   try {
-    const symbol = req.params.symbol;
+    const { symbol } = req.params;
     const { market, date } = req.query;
     if (date) {
       const resp = await getSymbolPriceOnDate(symbol, market, date);
@@ -24,7 +25,7 @@ stocks.get("/symbolValue/:symbol", async (req, res) => {
       res.status(200).send(resp);
     }
   } catch (e) {
-    res.status(500).send(e.toString());
+    res.status(500).send(errorMessages.symbol.priceNotFound);
   }
 });
 

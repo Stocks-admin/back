@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Market, PrismaClient } from "@prisma/client";
 import { doesSymbolExist, getSymbolPrice } from "./symbolController.js";
 import { calculateModes, calculatePPP } from "../helpers/transactionHelpers.js";
 import errorMessages from "../constants/errorMessages.js";
@@ -73,14 +73,17 @@ export async function createTransaction(transactionInfo, user_id) {
     if (!symbolExist) {
       throw new Error(errorMessages.symbol.notFound);
     }
+
     const data = {
       ...transactionInfo,
-      market: transactionInfo.market.toUpperCase(),
       user_id,
     };
 
     return await db.transactions.create({
-      data,
+      data: {
+        ...data,
+        market: Market[transactionInfo.market.toUpperCase()] || Market.NASDAQ,
+      },
     });
   } catch (error) {
     throw new Error(errorMessages.default);
