@@ -1,6 +1,14 @@
 import { Market, PrismaClient } from "@prisma/client";
-import { doesSymbolExist, getSymbolPrice } from "./symbolController.js";
-import { calculateModes, calculatePPP } from "../helpers/transactionHelpers.js";
+import {
+  doesSymbolExist,
+  filterNonExistentSymbols,
+  getSymbolPrice,
+} from "./symbolController.js";
+import {
+  calculateModes,
+  calculatePPP,
+  isTransactionValid,
+} from "../helpers/transactionHelpers.js";
 import errorMessages from "../constants/errorMessages.js";
 
 const db = new PrismaClient();
@@ -152,4 +160,58 @@ export async function getPortfolioAveragePrice(user_id) {
     }, {});
   }
   return [];
+}
+
+export async function massiveLoadTransactions(user_id, transactionsFile) {
+  transactionsFile.shift();
+  if (transactionsFile.length === 0) {
+    throw new Error(errorMessages.massiveTransaction.emptyFile);
+  }
+
+  const symbols = transactionsFile.map((transaction) => transaction[1]);
+  const existentSymbols = await filterNonExistentSymbols(symbols);
+  console.log(existentSymbols);
+  if (!existentSymbols || existentSymbols.length === 0) {
+    throw new Error(errorMessages.massiveTransaction.invalidFile);
+  }
+  const parsedTransactions = transactionsFile
+    .filter((transaction) => existentSymbols.includes(transaction[1]))
+    .map(async (transaction) => {
+      const transaction_type = transaction[0];
+      const symbol = transaction[1];
+      const amount_sold = transaction[2];
+      const symbol_price = transaction[3];
+      const market = transaction[4];
+      const transaction_date = transaction[5];
+      console.log(transaction);
+      if (
+        !(await isTransactionValid(
+          transaction_type,
+          symbol,
+          amount_sold,
+          symbol_price,
+          market,
+          transaction_date
+        ))
+      )
+        return {};
+
+      return {
+        symbol,
+        amount_sold,
+        symbol_price,
+        transaction_type,
+        market,
+        transaction_date: new Date(transaction_date),
+        user_id,
+      };
+    });
+
+  const data = await Promise.all(parsedTransactions);
+
+  // const transactionsCreated = await db.transactions.createMany({
+  //   data,
+  // });
+
+  return 1;
 }
