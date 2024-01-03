@@ -36,10 +36,9 @@ auth.post("/login", async (req, res, next) => {
 
     const validPassword = await compare(password, existingUser.password);
     if (!validPassword) {
-      res.status(403).send({
+      return res.status(403).send({
         message: errorMessages.user.invalidLogin,
       });
-      return;
     }
     const jti = uuidv4();
     const { accessToken, refreshToken } = generateTokens(existingUser, jti);
@@ -53,7 +52,7 @@ auth.post("/login", async (req, res, next) => {
       user: { ...user, accessToken, refreshToken },
     });
   } catch (err) {
-    next(err);
+    res.status(500).send(errorMessages.default);
   }
 });
 
@@ -71,14 +70,14 @@ auth.post("/register", async (req, res) => {
 
     const user = await createUser(email, password, name, phone);
     if (!user) {
-      res.status(400).send({
+      res.status(500).send({
         message: errorMessages.default,
       });
     }
     const jti = uuidv4();
     const { accessToken, refreshToken } = generateTokens(user, jti);
     if (!accessToken || !refreshToken) {
-      res.status(400).send({
+      res.status(500).send({
         message: errorMessages.default,
       });
     }

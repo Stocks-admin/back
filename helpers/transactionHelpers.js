@@ -72,10 +72,8 @@ export async function isTransactionValid(
   }
 
   if (transaction_date) {
-    console.log(transaction_date);
     const parsedDate = Date.parse(transaction_date);
     if (isNaN(parsedDate) || parsedDate > Date.now()) {
-      console.log(parsedDate);
       return false;
     }
   } else {

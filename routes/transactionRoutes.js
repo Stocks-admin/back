@@ -9,7 +9,6 @@ import jwt from "jsonwebtoken";
 import errorMessages from "../constants/errorMessages.js";
 import multer from "multer";
 import xlsx from "node-xlsx";
-import fs from "fs/promises"; // Utiliza la versión Promise de fs
 
 const storage = multer.memoryStorage(); // Cambiado a memoryStorage para manejar archivos en memoria
 const upload = multer({ storage });

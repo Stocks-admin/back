@@ -63,7 +63,6 @@ export async function getUserPortfolio(user_id) {
 
     // DROP TEMPORARY TABLE IF EXISTS en PostgreSQL
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
-
     const portfolioPurchasePrice = await getPortfolioAveragePrice(user_id);
     const updatedPortfolio = await Promise.all(
       portfolio.map(async (stock) => {
@@ -71,7 +70,7 @@ export async function getUserPortfolio(user_id) {
         return {
           ...stock,
           organization: current_price.organization,
-          current_price: parseInt(current_price.price) || 0,
+          current_price: current_price.price || 0,
           purchase_price:
             portfolioPurchasePrice[stock.symbol][stock.market.toLowerCase()] ||
             0,
@@ -178,6 +177,7 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
         acc.push({
           symbol: curr.symbol,
           amount: curr.amount_sold,
+          market: curr.market,
         });
       }
       return acc;
@@ -201,6 +201,7 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
       0
     );
   } catch (error) {
+    console.log("Error: ", error);
     return 0;
   }
 }
@@ -230,46 +231,50 @@ export async function getUserInfo(user_id) {
 export async function getUserBenchmark(user_id, interval = "weekly") {
   const intervalSeeked =
     benchmarkInterval[interval] || benchmarkInterval.weekly;
+  try {
+    const portfolioValuesPromises = await Promise.all([
+      getUserPortfolioValueOnDate(user_id, intervalSeeked.startDate),
+      getUserPortfolioValueOnDate(user_id, intervalSeeked.endDate),
+    ]);
 
-  const transactions = await db.transactions.findMany({
-    where: {
-      user_id,
-      transaction_date: {
-        gte: moment(intervalSeeked.startDate, "DD-MM-YYYY").toDate(),
-        lte: moment(intervalSeeked.endDate, "DD-MM-YYYY").toDate(),
-      },
-    },
-    orderBy: {
-      transaction_date: "asc",
-    },
-  });
-  return {
-    dollar: await getDollarBenchmark(transactions, intervalSeeked),
-    uva: await getUvaBenchmark(transactions, intervalSeeked),
-  };
+    const portfolioValues = {
+      start: portfolioValuesPromises[0],
+      end: portfolioValuesPromises[1],
+    };
+
+    const benchmarks = await Promise.all([
+      getDollarBenchmark(intervalSeeked, portfolioValues),
+      getUvaBenchmark(intervalSeeked, portfolioValues),
+    ]);
+
+    return {
+      dollar: benchmarks[0],
+      uva: benchmarks[1],
+    };
+  } catch (error) {
+    return {
+      dollar: 0,
+      uva: 0,
+    };
+  }
 }
 
-async function getDollarBenchmark(transactions, interval) {
-  if (!transactions?.length) return 0;
+async function getDollarBenchmark(interval, portfolioValues) {
   try {
+    const dollarValuesPromise = await Promise.all([
+      getDollarValueOnDate(interval.startDate),
+      getDollarValueOnDate(interval.endDate),
+    ]);
+
     const dollarValues = {
-      start: await getDollarValueOnDate(interval.startDate),
-      end: await getDollarValueOnDate(interval.endDate),
+      start: dollarValuesPromise[0],
+      end: dollarValuesPromise[1],
     };
+
     const dollarVariation =
       ((dollarValues?.end?.value - dollarValues?.start?.value) /
         dollarValues?.start?.value) *
       100;
-    const portfolioValues = {
-      start: await getUserPortfolioValueOnDate(
-        transactions[0].user_id,
-        interval.startDate
-      ),
-      end: await getUserPortfolioValueOnDate(
-        transactions[0].user_id,
-        interval.endDate
-      ),
-    };
     const portfolioVariation =
       ((portfolioValues.end - portfolioValues.start) / portfolioValues.start) *
         100 || 0;
@@ -279,8 +284,7 @@ async function getDollarBenchmark(transactions, interval) {
   }
 }
 
-async function getUvaBenchmark(transactions, interval) {
-  if (!transactions?.length) return 0;
+async function getUvaBenchmark(interval, portfolioValues) {
   try {
     const uvaValues = {
       start: await getUvaValueOnDate(interval.startDate),
@@ -290,21 +294,12 @@ async function getUvaBenchmark(transactions, interval) {
       ((uvaValues?.end?.value - uvaValues?.start?.value) /
         uvaValues?.start?.value) *
         100 || 0;
-    const portfolioValues = {
-      start: await getUserPortfolioValueOnDate(
-        transactions[0].user_id,
-        interval.startDate
-      ),
-      end: await getUserPortfolioValueOnDate(
-        transactions[0].user_id,
-        interval.endDate
-      ),
-    };
     const portfolioVariation =
       ((portfolioValues.end - portfolioValues.start) / portfolioValues.start) *
         100 || 0;
     return portfolioVariation - uvaVariation;
   } catch (error) {
+    console.log("Error: ", error);
     return 0;
   }
 }
