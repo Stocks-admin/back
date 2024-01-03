@@ -16,5 +16,11 @@ export default {
     notFound: "El simbolo no existe",
     missingInfo: "Faltan datos",
     alreadyExists: "El simbolo ya existe",
+    priceNotFound: "No se pudo obtener el precio del simbolo",
+  },
+  massiveTransaction: {
+    missingInfo: "Faltan datos",
+    invalidFile: "Archivo invalido",
+    emptyFile: "Archivo vacio",
   },
 };

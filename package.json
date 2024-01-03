@@ -16,11 +16,14 @@
     "apicache": "^1.6.3",
     "axios": "^1.5.0",
     "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "finnhub": "^1.2.17",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.29.4",
+    "multer": "^1.4.5-lts.1",
+    "node-xlsx": "^0.23.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { Market, PrismaClient } from "@prisma/client";
+import { doesSymbolExist } from "../controllers/symbolController.js";
 
 const db = new PrismaClient();
 
@@ -44,4 +45,40 @@ export async function calculateModesForAllUsersAndSymbols() {
   `;
 
   return query;
+}
+
+export async function isTransactionValid(
+  transaction_type,
+  symbol,
+  amount_sold,
+  symbol_price,
+  market,
+  transaction_date
+) {
+  if (!symbol || !market || !Market[market.toUpperCase()]) {
+    return false;
+  }
+
+  if (transaction_type !== "buy" && transaction_type !== "sell") {
+    return false;
+  }
+
+  if (isNaN(parseInt(amount_sold) || parseInt(amount_sold) <= 0)) {
+    return false;
+  }
+
+  if (isNaN(parseFloat(symbol_price) || parseFloat(symbol_price) < 0)) {
+    return false;
+  }
+
+  if (transaction_date) {
+    const parsedDate = Date.parse(transaction_date);
+    if (isNaN(parsedDate) || parsedDate > Date.now()) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+
+  return true;
 }

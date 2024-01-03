@@ -30,7 +30,8 @@ model transactions {
 enum Market {
   NYSE
   NASDAQ
-  TSX
+  BCBA
+  CEDEARS
 }
 
 model user {

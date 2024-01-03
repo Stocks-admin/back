@@ -2,10 +2,16 @@ import express from "express";
 import {
   createTransaction,
   getUserTransactions,
+  massiveLoadTransactions,
 } from "../controllers/transactionController.js";
 import { isAuthenticated } from "../middlewares.js";
 import jwt from "jsonwebtoken";
 import errorMessages from "../constants/errorMessages.js";
+import multer from "multer";
+import xlsx from "node-xlsx";
+
+const storage = multer.memoryStorage(); // Cambiado a memoryStorage para manejar archivos en memoria
+const upload = multer({ storage });
 
 const transactions = express.Router();
 
@@ -49,6 +55,41 @@ transactions.post("/createTransaction", isAuthenticated, async (req, res) => {
     res.status(500).send({ error: errorMessages.default });
   }
 });
+
+transactions.post(
+  "/massiveCreateTransaction",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const { authorization } = req.headers;
+      const access_token = authorization.split(" ")[1];
+      if (!access_token) {
+        return res.status(401).send(errorMessages.unauthorized);
+      }
+      const payload = jwt.verify(access_token, process.env.JWT_ACCESS_SECRET);
+      if (!payload?.userId) {
+        return res.status(401).send(errorMessages.unauthorized);
+      }
+
+      const { file } = req;
+      if (!file) {
+        return res.status(500).send({ error: errorMessages.invalidFile });
+      }
+      const workSheetsFromFile = xlsx.parse(file.buffer);
+      if (workSheetsFromFile?.length === 0) {
+        return res.status(500).send({ error: errorMessages.invalidFile });
+      }
+      const transactions = await massiveLoadTransactions(
+        1,
+        workSheetsFromFile[0].data
+      );
+      return res.status(200).send({ transactions });
+    } catch (e) {
+      console.log("ERROR", e);
+      res.status(500).send({ error: errorMessages.default });
+    }
+  }
+);
 
 transactions.get("/userTransactions", isAuthenticated, async (req, res) => {
   try {

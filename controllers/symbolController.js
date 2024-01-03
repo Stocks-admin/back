@@ -68,7 +68,34 @@ export async function doesSymbolExist(symbol) {
       return false;
     }
   } catch (error) {
-    console.log(error);
     return false;
+  }
+}
+
+export async function filterNonExistentSymbols(symbols) {
+  try {
+    const resp = await axiosInstance.post(`stocks/verifyStocks`, {
+      symbols,
+    });
+    if (resp.status === 200) {
+      return resp.data;
+    } else {
+      return [];
+    }
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getRandomSymbol(limit = 10) {
+  try {
+    const resp = await axiosInstance.get(`stocks/random-stocks?limit=${limit}`);
+    if (resp.status === 200) {
+      return resp.data;
+    } else {
+      throw new Error("Error al obtener simbolos");
+    }
+  } catch (error) {
+    throw error;
   }
 }

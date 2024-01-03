@@ -1,7 +1,7 @@
 SELECT
   t.user_id,
   t.symbol,
-  t.market
+  t.market,
   sum(
     CASE
       WHEN (t.transaction_type = 'buy' :: "Transaction_type") THEN t.amount_sold
@@ -21,6 +21,7 @@ FROM
         portfolio_snapshots
       GROUP BY
         portfolio_snapshots.user_id,
+        portfolio_snapshots.market,
         portfolio_snapshots.symbol
     ) up ON (
       (
@@ -35,4 +36,5 @@ WHERE
   )
 GROUP BY
   t.user_id,
+  t.market,
   t.symbol;
