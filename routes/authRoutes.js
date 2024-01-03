@@ -21,50 +21,43 @@ import errorMessages from "../constants/errorMessages.js";
 const auth = express.Router();
 
 auth.post("/login", async (req, res, next) => {
+  console.log("LOGIN");
   try {
-    // const { email, password } = req.body;
-    // if (!email || !password) {
-    //   throw new Error(errorMessages.user.missingInfo);
-    // }
+    const { email, password } = req.body;
+    if (!email || !password) {
+      throw new Error(errorMessages.user.missingInfo);
+    }
 
-    // const existingUser = await getUserByEmail(email);
-    // if (!existingUser) {
-    //   return res.status(403).send({
-    //     message: errorMessages.user.invalidLogin,
-    //   });
-    // }
+    const existingUser = await getUserByEmail(email);
+    if (!existingUser) {
+      return res.status(403).send({
+        message: errorMessages.user.invalidLogin,
+      });
+    }
+    console.log("LOGIN 2");
 
-    // const validPassword = await compare(password, existingUser.password);
-    // if (!validPassword) {
-    //   res.status(403).send({
-    //     message: errorMessages.user.invalidLogin,
-    //   });
-    //   return;
-    // }
-    // const jti = uuidv4();
-    // const { accessToken, refreshToken } = generateTokens(existingUser, jti);
-    // await addRefreshTokenToWhitelist({
-    //   jti,
-    //   refreshToken,
-    //   user_id: existingUser.user_id,
-    // });
-    // const { password: userPass, ...user } = existingUser;
-    // res.json({
-    //   user: { ...user, accessToken, refreshToken },
-    // });
-    res.status(200).send({
-      user_id: 1,
-      email: "matiduraan@gmail.com",
-      name: "Matias Duran",
-      phone: "01138054078",
-      created: "2023-12-29T03:44:19.168Z",
-      updated: "2023-12-29T03:44:19.168Z",
-      accessToken:
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTcwNDIzODQ4MCwiZXhwIjoxNzA0MzI0ODgwfQ.7ctzYSVrs3JbubkTZRrDb90VajjhKmvQoqLIAQVxBSA",
-      refreshToken:
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJqdGkiOiJjZGM5YjE0YS0yNTUwLTQ4MmUtOWU0NS02YTI4OTkxYTA3Y2UiLCJpYXQiOjE3MDQyMzg0ODAsImV4cCI6MTcwNjgzMDQ4MH0.fJD6JPyT0Mrwm8-bvPUtbDj1ayQU87ZRprDjMwZz3tc",
+    const validPassword = await compare(password, existingUser.password);
+    if (!validPassword) {
+      res.status(403).send({
+        message: errorMessages.user.invalidLogin,
+      });
+      return;
+    }
+    const jti = uuidv4();
+    const { accessToken, refreshToken } = generateTokens(existingUser, jti);
+    await addRefreshTokenToWhitelist({
+      jti,
+      refreshToken,
+      user_id: existingUser.user_id,
+    });
+    console.log("LOGIN 3");
+    const { password: userPass, ...user } = existingUser;
+    res.json({
+      user: { ...user, accessToken, refreshToken },
     });
   } catch (err) {
+    console.log("LOGIN 4");
+
     next(err);
   }
 });
