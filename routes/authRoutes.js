@@ -21,8 +21,6 @@ import errorMessages from "../constants/errorMessages.js";
 const auth = express.Router();
 
 auth.post("/login", async (req, res, next) => {
-  let fullUrl = req.headers.host + req.url;
-  console.log(fullUrl);
   try {
     const { email, password } = req.body;
     if (!email || !password) {
