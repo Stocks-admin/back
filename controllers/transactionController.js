@@ -10,6 +10,8 @@ import {
   isTransactionValid,
 } from "../helpers/transactionHelpers.js";
 import errorMessages from "../constants/errorMessages.js";
+import { convertToUsd } from "../helpers/currencyHelpers.js";
+import moment from "moment";
 
 const db = new PrismaClient();
 
@@ -82,15 +84,22 @@ export async function createTransaction(transactionInfo, user_id) {
       throw new Error(errorMessages.symbol.notFound);
     }
 
-    const data = {
-      ...transactionInfo,
-      user_id,
-    };
+    const { currency, ...restTransactionInfo } = transactionInfo;
 
+    const symbolPrice =
+      currency && currency === "ARS"
+        ? await convertToUsd(transactionInfo.symbol_price, transactionInfo.date)
+        : transactionInfo.symbol_price;
+
+    const data = {
+      ...restTransactionInfo,
+      user_id,
+      market: Market[transactionInfo.market.toUpperCase()] || Market.NASDAQ,
+      symbol_price: symbolPrice,
+    };
     return await db.transactions.create({
       data: {
         ...data,
-        market: Market[transactionInfo.market.toUpperCase()] || Market.NASDAQ,
       },
     });
   } catch (error) {
@@ -170,7 +179,6 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
 
   const symbols = transactionsFile.map((transaction) => transaction[1]);
   const existentSymbols = await filterNonExistentSymbols(symbols);
-  console.log(existentSymbols);
   if (!existentSymbols || existentSymbols.length === 0) {
     throw new Error(errorMessages.massiveTransaction.invalidFile);
   }
@@ -180,22 +188,23 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
       const transaction_type = transaction[0];
       const symbol = transaction[1];
       const amount_sold = transaction[2];
-      const symbol_price = transaction[3];
-      const market = transaction[4];
-      const transaction_date = transaction[5];
-      console.log(transaction);
-      if (
-        !(await isTransactionValid(
-          transaction_type,
-          symbol,
-          amount_sold,
-          symbol_price,
-          market,
-          transaction_date
-        ))
-      )
-        return {};
-
+      const symbolPrice = transaction[3];
+      const currency = transaction[4];
+      const market = transaction[5];
+      const transaction_date = transaction[6];
+      const isValid = await isTransactionValid(
+        transaction_type,
+        symbol,
+        amount_sold,
+        symbolPrice,
+        market,
+        transaction_date
+      );
+      if (!isValid) return {};
+      const symbol_price =
+        currency && currency === "ARS"
+          ? await convertToUsd(symbolPrice, moment(transaction_date))
+          : symbolPrice;
       return {
         symbol,
         amount_sold,
@@ -209,9 +218,9 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
 
   const data = await Promise.all(parsedTransactions);
 
-  // const transactionsCreated = await db.transactions.createMany({
-  //   data,
-  // });
+  const transactionsCreated = await db.transactions.createMany({
+    data,
+  });
 
-  return 1;
+  return transactionsCreated;
 }
