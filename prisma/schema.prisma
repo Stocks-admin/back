@@ -49,7 +49,7 @@ model portfolio_snapshots {
   symbol  String
   amount  Float
   market  Market
-  date    DateTime @db.Date
+  date    DateTime @default(now())
 
   @@id([user_id, symbol, date])
 }

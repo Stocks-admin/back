@@ -85,45 +85,138 @@ export async function getUserPortfolio(user_id) {
 
 export async function generateSnapshots() {
   try {
-    // Paso 1: Obtener la última snapshot para cada user_id y symbol
-    const latestSnapshots = await prisma.$queryRaw`
-      SELECT user_id, symbol, MAX(date) AS latest_snapshot_date, amount AS latest_snapshot_amount
-      FROM portfolio_snapshots
-      GROUP BY user_id, symbol;
-    `;
+    const updates = await db.portfolio_snapshots_updates.findMany();
 
-    for (const snapshot of latestSnapshots) {
-      const { user_id, symbol, latest_snapshot_date, latest_snapshot_amount } =
-        snapshot;
+    const snapshots = await db.portfolio_snapshots.findMany({
+      where: {
+        OR: updates.map((update) => ({
+          user_id: update.user_id,
+          symbol: update.symbol,
+          market: update.market,
+        })),
+      },
+    });
 
-      // Paso 2: Sumar todas las actualizaciones posteriores para cada user_id y symbol
-      const updatesSum = await prisma.tmp_user_portfolio_updates.aggregate({
+    const newSnapshots = updates.reduce((acc, curr) => {
+      const index = acc.findIndex(
+        (snapshot) =>
+          snapshot.user_id === curr.user_id &&
+          snapshot.symbol === curr.symbol &&
+          snapshot.market === curr.market
+      );
+      if (index >= 0) {
+        acc[index].amount += curr.amount;
+        acc[index].date = moment().toDate();
+      } else {
+        acc.push({
+          user_id: curr.user_id,
+          symbol: curr.symbol,
+          amount: curr.amount,
+          market: curr.market,
+          date: moment().toDate(),
+        });
+      }
+      return acc;
+    }, snapshots);
+
+    await db.portfolio_snapshots.createMany({
+      data: newSnapshots,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+}
+
+export async function updateUserSnapshotsFromDate(user_id, symbol, date) {
+  try {
+    const transactions = await db.transactions.findMany({
+      where: {
+        user_id,
+        symbol,
+        transaction_date: {
+          gte: moment(date, "DD-MM-YYYY").toDate(),
+        },
+      },
+      orderBy: {
+        transaction_date: "asc",
+      },
+    });
+
+    const lastSnapshot = await db.portfolio_snapshots.findFirst({
+      where: {
+        user_id,
+        symbol,
+        date: {
+          lte: moment(date, "DD-MM-YYYY").toDate(),
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    const snapshotsAfter = await db.portfolio_snapshots.findMany({
+      where: {
+        user_id,
+        symbol,
+      },
+      orderBy: {
+        date: "asc",
+      },
+    });
+
+    let lastSnapshotValue = lastSnapshot?.amount || 0;
+    let lastSnapshotDate = lastSnapshot?.date || moment("1900-1-1").toDate();
+
+    if (!transactions?.length) {
+      //Delete all snapshots after date
+      await db.portfolio_snapshots.deleteMany({
         where: {
-          userId: user_id,
-          symbol: symbol,
+          user_id,
+          symbol,
           date: {
-            gt: latest_snapshot_date,
+            gte: moment(date, "DD-MM-YYYY").toDate(),
           },
-        },
-        sum: {
-          amount: true,
-        },
-      });
-
-      // Paso 3: Crear una nueva snapshot para cada user_id y symbol
-      const newAmount = latest_snapshot_amount + (updatesSum.sum.amount || 0);
-      await prisma.portfolio_snapshots.create({
-        data: {
-          userId: user_id,
-          symbol: symbol,
-          date: new Date(), // Asumiendo que la fecha de la nueva snapshot es la fecha actual
-          amount: newAmount,
         },
       });
     }
+
+    if (!snapshotsAfter?.length) return;
+
+    const updatedSnapshots = snapshotsAfter.map((snapshot) => {
+      const transactionBetweenSnapshots = transactions.filter((transaction) =>
+        moment(transaction.transaction_date).isBetween(
+          lastSnapshotDate,
+          snapshot?.date
+        )
+      );
+
+      const amount = transactionBetweenSnapshots.reduce(
+        (acc, curr) =>
+          curr.transaction_type === "buy"
+            ? acc + curr.amount_sold
+            : acc - curr.amount_sold,
+        lastSnapshotValue
+      );
+      lastSnapshotValue = amount;
+      lastSnapshotDate = snapshot?.date;
+
+      return {
+        ...snapshot,
+        amount,
+      };
+    });
+
+    //Update snapshots on DB
+    return await db.portfolio_snapshots.updateMany({
+      where: {
+        user_id,
+        symbol,
+      },
+      data: updatedSnapshots,
+    });
   } catch (error) {
-  } finally {
-    await prisma.$disconnect();
+    throw new Error(error);
   }
 }
 
@@ -241,6 +334,13 @@ export async function getUserBenchmark(user_id, interval = "weekly") {
       start: portfolioValuesPromises[0],
       end: portfolioValuesPromises[1],
     };
+
+    if (
+      !portfolioValues.start ||
+      !portfolioValues.end ||
+      (portfolioValues.start === 0 && portfolioValues.end === 0)
+    )
+      return { dollar: 0, uva: 0 };
 
     const benchmarks = await Promise.all([
       getDollarBenchmark(intervalSeeked, portfolioValues),
