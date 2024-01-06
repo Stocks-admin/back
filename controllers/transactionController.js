@@ -176,7 +176,7 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
   if (transactionsFile.length === 0) {
     throw new Error(errorMessages.massiveTransaction.emptyFile);
   }
-
+  console.log(transactionsFile);
   const symbols = transactionsFile.map((transaction) => transaction[1]);
   const existentSymbols = await filterNonExistentSymbols(symbols);
   if (!existentSymbols || existentSymbols.length === 0) {
@@ -191,7 +191,9 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
       const symbolPrice = transaction[3];
       const currency = transaction[4];
       const market = transaction[5];
-      const transaction_date = transaction[6];
+      const transaction_date = moment(
+        (transaction[6] - 25569) * 86400 * 1000
+      ).format();
       const isValid = await isTransactionValid(
         transaction_type,
         symbol,
@@ -211,7 +213,7 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
         symbol_price,
         transaction_type,
         market,
-        transaction_date: new Date(transaction_date),
+        transaction_date: moment(transaction_date).toDate(),
         user_id,
       };
     });

@@ -80,7 +80,7 @@ transactions.post(
         return res.status(500).send({ error: errorMessages.invalidFile });
       }
       const transactions = await massiveLoadTransactions(
-        1,
+        payload.userId,
         workSheetsFromFile[0].data
       );
       return res.status(200).send({ transactions });
