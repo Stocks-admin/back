@@ -172,11 +172,10 @@ export async function getPortfolioAveragePrice(user_id) {
 }
 
 export async function massiveLoadTransactions(user_id, transactionsFile) {
-  transactionsFile.shift();
+  transactionsFile.shift().filter((transaction) => transaction.length > 0);
   if (transactionsFile.length === 0) {
     throw new Error(errorMessages.massiveTransaction.emptyFile);
   }
-  console.log(transactionsFile);
   const symbols = transactionsFile.map((transaction) => transaction[1]);
   const existentSymbols = await filterNonExistentSymbols(symbols);
   if (!existentSymbols || existentSymbols.length === 0) {
