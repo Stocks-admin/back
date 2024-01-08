@@ -15,7 +15,6 @@ import {
   getPortfolioAveragePrice,
   getSymbolAveragePrice,
 } from "./transactionController.js";
-import user from "../routes/userRoutes.js";
 
 const db = new PrismaClient();
 
@@ -69,6 +68,7 @@ export async function getUserPortfolio(user_id) {
         const current_price = await getSymbolPrice(stock.symbol, stock.market);
         return {
           ...stock,
+          type: current_price.type,
           organization: current_price.organization,
           current_price: current_price.price || 0,
           purchase_price:

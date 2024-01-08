@@ -103,6 +103,7 @@ export async function createTransaction(transactionInfo, user_id) {
       },
     });
   } catch (error) {
+    console.log(error);
     throw new Error(errorMessages.default);
   }
 }
