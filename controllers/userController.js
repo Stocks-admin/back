@@ -15,7 +15,6 @@ import {
   getPortfolioAveragePrice,
   getSymbolAveragePrice,
 } from "./transactionController.js";
-import user from "../routes/userRoutes.js";
 
 const db = new PrismaClient();
 
@@ -69,6 +68,7 @@ export async function getUserPortfolio(user_id) {
         const current_price = await getSymbolPrice(stock.symbol, stock.market);
         return {
           ...stock,
+          type: current_price.type,
           organization: current_price.organization,
           current_price: current_price.price || 0,
           purchase_price:
@@ -240,7 +240,7 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
       where: {
         user_id,
         date: {
-          lte: moment(date, "DD-MM-YYYY").toDate(),
+          lte: moment(date).toDate(),
         },
       },
       orderBy: {
@@ -255,12 +255,11 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
         transaction_date: {
           gte: lastSnapshot?.date
             ? lastSnapshot.date
-            : moment("01-01-1970", "DD-MM-YYYY").toDate(),
-          lte: moment(date, "DD-MM-YYYY").toDate(),
+            : moment("1970-01-01").toDate(),
+          lte: moment(date).toDate(),
         },
       },
     });
-
     //calculate final portfolio on date
     const portfolio = newTransactions.reduce((acc, curr) => {
       const index = acc.findIndex((item) => item.symbol === curr.symbol);
@@ -294,7 +293,6 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
       0
     );
   } catch (error) {
-    console.log("Error: ", error);
     return 0;
   }
 }
@@ -324,6 +322,8 @@ export async function getUserInfo(user_id) {
 export async function getUserBenchmark(user_id, interval = "weekly") {
   const intervalSeeked =
     benchmarkInterval[interval] || benchmarkInterval.weekly;
+
+  console.log("Interval seeked: ", intervalSeeked);
   try {
     const portfolioValuesPromises = await Promise.all([
       getUserPortfolioValueOnDate(user_id, intervalSeeked.startDate),
@@ -334,7 +334,7 @@ export async function getUserBenchmark(user_id, interval = "weekly") {
       start: portfolioValuesPromises[0],
       end: portfolioValuesPromises[1],
     };
-
+    console.log("Portfolio values: ", portfolioValues);
     if (
       !portfolioValues.start ||
       !portfolioValues.end ||
@@ -346,6 +346,8 @@ export async function getUserBenchmark(user_id, interval = "weekly") {
       getDollarBenchmark(intervalSeeked, portfolioValues),
       getUvaBenchmark(intervalSeeked, portfolioValues),
     ]);
+
+    console.log("Benchmarks: ", benchmarks);
 
     return {
       dollar: benchmarks[0],

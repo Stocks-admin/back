@@ -49,9 +49,11 @@ transactions.post("/createTransaction", isAuthenticated, async (req, res) => {
         return res.status(200).send(data);
       })
       .catch((e) => {
+        console.log("ERROR", e);
         return res.status(500).send({ error: e.toString() });
       });
   } catch (e) {
+    console.log("ERROR", e);
     res.status(500).send({ error: errorMessages.default });
   }
 });
