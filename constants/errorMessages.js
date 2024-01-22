@@ -11,6 +11,7 @@ export default {
   },
   transaction: {
     missingInfo: "Faltan datos",
+    invalidDelete: "No se pudo eliminar la transaccion",
   },
   symbol: {
     notFound: "El simbolo no existe",

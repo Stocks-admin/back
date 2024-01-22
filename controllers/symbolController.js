@@ -103,3 +103,18 @@ export async function getRandomSymbol(limit = 10) {
     throw error;
   }
 }
+
+export async function getSymbolBatch(symbol) {
+  try {
+    const resp = await axiosInstance.get(`stocks/batch`, {
+      symbol,
+    });
+    if (resp.status === 200) {
+      return resp.data.batch;
+    } else {
+      throw new Error("Error al obtener simbolo");
+    }
+  } catch (error) {
+    throw error;
+  }
+}

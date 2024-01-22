@@ -2,6 +2,7 @@ import { Market, PrismaClient } from "@prisma/client";
 import {
   doesSymbolExist,
   filterNonExistentSymbols,
+  getSymbolBatch,
   getSymbolPrice,
 } from "./symbolController.js";
 import {
@@ -12,6 +13,7 @@ import {
 import errorMessages from "../constants/errorMessages.js";
 import { convertToUsd } from "../helpers/currencyHelpers.js";
 import moment from "moment";
+import { updateUserSnapshotsFromDate } from "./userController.js";
 
 const db = new PrismaClient();
 
@@ -24,12 +26,13 @@ export async function getUserTransactions(
   offset = 0,
   limit,
   dateFrom,
-  dateTo
+  dateTo,
+  symbol
 ) {
   const whereConditions = {
     user_id: user_id,
+    symbol: symbol,
   };
-
   const from = new Date(dateFrom);
   const to = new Date(dateTo);
 
@@ -83,19 +86,21 @@ export async function createTransaction(transactionInfo, user_id) {
     if (!symbolExist) {
       throw new Error(errorMessages.symbol.notFound);
     }
-
+    const symbolBatch = await getSymbolBatch(transactionInfo.symbol);
     const { currency, ...restTransactionInfo } = transactionInfo;
-
     const symbolPrice =
       currency && currency === "ARS"
-        ? await convertToUsd(transactionInfo.symbol_price, transactionInfo.date)
+        ? await convertToUsd(
+            transactionInfo.symbol_price,
+            transactionInfo.transaction_date
+          )
         : transactionInfo.symbol_price;
 
     const data = {
       ...restTransactionInfo,
       user_id,
       market: Market[transactionInfo.market.toUpperCase()] || Market.NASDAQ,
-      symbol_price: symbolPrice,
+      symbol_price: symbolPrice / symbolBatch,
     };
     return await db.transactions.create({
       data: {
@@ -178,12 +183,32 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
     throw new Error(errorMessages.massiveTransaction.emptyFile);
   }
   const symbols = transactionsFile.map((transaction) => transaction[1]);
-  const existentSymbols = await filterNonExistentSymbols(symbols);
+  const symbolsData = await filterNonExistentSymbols(symbols);
+  const existentSymbols = symbolsData.map(({ symbol }) => symbol);
   if (!existentSymbols || existentSymbols.length === 0) {
     throw new Error(errorMessages.massiveTransaction.invalidFile);
   }
   const parsedTransactions = transactionsFile
-    .filter((transaction) => existentSymbols.includes(transaction[1]))
+    .filter((transaction) => {
+      const transaction_type = transaction[0];
+      const symbol = transaction[1];
+      const amount_sold = transaction[2];
+      const symbolPrice = transaction[3];
+      const market = transaction[5];
+      const transaction_date = moment(
+        (transaction[6] - 25569) * 86400 * 1000
+      ).format();
+      const isValid = isTransactionValid(
+        transaction_type,
+        symbol,
+        amount_sold,
+        symbolPrice,
+        market,
+        transaction_date
+      );
+
+      return existentSymbols.includes(symbol) && isValid;
+    })
     .map(async (transaction) => {
       const transaction_type = transaction[0];
       const symbol = transaction[1];
@@ -194,23 +219,16 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
       const transaction_date = moment(
         (transaction[6] - 25569) * 86400 * 1000
       ).format();
-      const isValid = await isTransactionValid(
-        transaction_type,
-        symbol,
-        amount_sold,
-        symbolPrice,
-        market,
-        transaction_date
-      );
-      if (!isValid) return {};
       const symbol_price =
         currency && currency === "ARS"
-          ? await convertToUsd(symbolPrice, moment(transaction_date))
+          ? await convertToUsd(symbolPrice, transaction_date)
           : symbolPrice;
+      const symbolBatch = await getSymbolBatch(symbol);
+
       return {
         symbol,
         amount_sold,
-        symbol_price,
+        symbol_price: symbol_price / symbolBatch,
         transaction_type,
         market,
         transaction_date: moment(transaction_date).toDate(),
@@ -219,10 +237,67 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
     });
 
   const data = await Promise.all(parsedTransactions);
-
   const transactionsCreated = await db.transactions.createMany({
     data,
   });
 
   return transactionsCreated;
 }
+
+export const deleteTransaction = async (transactionId, user_id) => {
+  let transaction;
+
+  try {
+    // Iniciar la transacción
+    await db.$transaction(async (prisma) => {
+      // Obtener la transacción
+      transaction = await prisma.transactions.findUnique({
+        where: { transaction_id: transactionId },
+      });
+
+      if (!transaction) {
+        throw new Error(errorMessages.transaction.notFound);
+      }
+
+      if (transaction.user_id !== user_id) {
+        throw new Error(errorMessages.transaction.invalidDelete);
+      }
+
+      const { transaction_date, symbol } = transaction;
+
+      // Eliminar la transacción
+      await prisma.transactions.delete({
+        where: { transaction_id: transactionId },
+      });
+
+      // Actualizar los snapshots del usuario
+      await updateUserSnapshotsFromDate(user_id, symbol, transaction_date);
+    });
+
+    // Si la transacción se realiza con éxito, retornar la transacción eliminada
+    return transaction;
+  } catch (error) {
+    console.log(error);
+    // En caso de error, revertir la transacción y lanzar la excepción
+    if (transaction) {
+      // Recuperar la transacción original
+      const originalTransaction = await db.transactions.findUnique({
+        where: { transaction_id: transactionId },
+      });
+
+      if (!originalTransaction) {
+        throw new Error(errorMessages.transaction.notFound);
+      }
+
+      // Restaurar la transacción original en la base de datos
+      await db.transactions.create({
+        data: originalTransaction,
+      });
+    }
+
+    throw error;
+  } finally {
+    // Cerrar la conexión de la base de datos
+    await db.$disconnect();
+  }
+};
