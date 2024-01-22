@@ -112,9 +112,9 @@ export async function getSymbolBatch(symbol) {
     if (resp.status === 200) {
       return resp.data.batch;
     } else {
-      throw new Error("Error al obtener simbolo");
+      return 1;
     }
   } catch (error) {
-    throw error;
+    return 1;
   }
 }
