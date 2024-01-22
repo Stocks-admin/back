@@ -31,8 +31,10 @@ export async function getUserTransactions(
 ) {
   const whereConditions = {
     user_id: user_id,
-    symbol: symbol,
   };
+  if (symbol) {
+    whereConditions.symbol = symbol;
+  }
   const from = new Date(dateFrom);
   const to = new Date(dateTo);
 
@@ -42,14 +44,12 @@ export async function getUserTransactions(
       lte: to,
     };
   }
-
   const transactions = await db.transactions.findMany({
     where: whereConditions,
     orderBy: { transaction_date: "desc" },
     skip: offset,
     take: limit,
   });
-
   const promises = transactions.map(async (transaction) => {
     if (transaction.transaction_type === "sell") {
       return {
