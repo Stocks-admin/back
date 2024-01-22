@@ -79,6 +79,5 @@ export function isTransactionValid(
   } else {
     return false;
   }
-
   return true;
 }

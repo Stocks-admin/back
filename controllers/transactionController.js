@@ -178,70 +178,75 @@ export async function getPortfolioAveragePrice(user_id) {
 }
 
 export async function massiveLoadTransactions(user_id, transactionsFile) {
-  transactionsFile.shift().filter((transaction) => transaction.length > 0);
-  if (transactionsFile.length === 0) {
-    throw new Error(errorMessages.massiveTransaction.emptyFile);
-  }
-  const symbols = transactionsFile.map((transaction) => transaction[1]);
-  const symbolsData = await filterNonExistentSymbols(symbols);
-  const existentSymbols = symbolsData.map(({ symbol }) => symbol);
-  if (!existentSymbols || existentSymbols.length === 0) {
-    throw new Error(errorMessages.massiveTransaction.invalidFile);
-  }
-  const parsedTransactions = transactionsFile
-    .filter((transaction) => {
-      const transaction_type = transaction[0];
-      const symbol = transaction[1];
-      const amount_sold = transaction[2];
-      const symbolPrice = transaction[3];
-      const market = transaction[5];
-      const transaction_date = moment(
-        (transaction[6] - 25569) * 86400 * 1000
-      ).format();
-      const isValid = isTransactionValid(
-        transaction_type,
-        symbol,
-        amount_sold,
-        symbolPrice,
-        market,
-        transaction_date
-      );
+  try {
+    transactionsFile.shift().filter((transaction) => transaction.length > 0);
+    if (transactionsFile.length === 0) {
+      throw new Error(errorMessages.massiveTransaction.emptyFile);
+    }
+    const symbols = transactionsFile.map((transaction) => transaction[1]);
+    const existentSymbols = await filterNonExistentSymbols(symbols);
+    if (!existentSymbols || existentSymbols.length === 0) {
+      throw new Error(errorMessages.massiveTransaction.invalidFile);
+    }
+    const parsedTransactions = transactionsFile
+      .filter((transaction) => {
+        if (transaction.length < 7) {
+          return false;
+        }
+        const transaction_type = transaction[0];
+        const symbol = transaction[1];
+        const amount_sold = transaction[2];
+        const symbolPrice = transaction[3];
+        const market = transaction[5];
+        const transaction_date = moment(
+          (transaction[6] - 25569) * 86400 * 1000
+        ).format();
+        const isValid = isTransactionValid(
+          transaction_type,
+          symbol,
+          amount_sold,
+          symbolPrice,
+          market,
+          transaction_date
+        );
+        return existentSymbols.includes(symbol) && isValid;
+      })
+      .map(async (transaction) => {
+        const transaction_type = transaction[0];
+        const symbol = transaction[1];
+        const amount_sold = transaction[2];
+        const symbolPrice = transaction[3];
+        const currency = transaction[4];
+        const market = transaction[5];
+        const transaction_date = moment(
+          (transaction[6] - 25569) * 86400 * 1000
+        ).format();
+        const symbol_price =
+          currency && currency === "ARS"
+            ? await convertToUsd(symbolPrice, transaction_date)
+            : symbolPrice;
+        const symbolBatch = (await getSymbolBatch(symbol)) || 1;
+        return {
+          symbol,
+          amount_sold,
+          symbol_price: symbol_price / symbolBatch,
+          transaction_type,
+          market,
+          transaction_date: moment(transaction_date).toDate(),
+          user_id,
+        };
+      });
 
-      return existentSymbols.includes(symbol) && isValid;
-    })
-    .map(async (transaction) => {
-      const transaction_type = transaction[0];
-      const symbol = transaction[1];
-      const amount_sold = transaction[2];
-      const symbolPrice = transaction[3];
-      const currency = transaction[4];
-      const market = transaction[5];
-      const transaction_date = moment(
-        (transaction[6] - 25569) * 86400 * 1000
-      ).format();
-      const symbol_price =
-        currency && currency === "ARS"
-          ? await convertToUsd(symbolPrice, transaction_date)
-          : symbolPrice;
-      const symbolBatch = await getSymbolBatch(symbol);
+    const data = await Promise.all(parsedTransactions);
 
-      return {
-        symbol,
-        amount_sold,
-        symbol_price: symbol_price / symbolBatch,
-        transaction_type,
-        market,
-        transaction_date: moment(transaction_date).toDate(),
-        user_id,
-      };
+    const transactionsCreated = await db.transactions.createMany({
+      data,
     });
-
-  const data = await Promise.all(parsedTransactions);
-  const transactionsCreated = await db.transactions.createMany({
-    data,
-  });
-
-  return transactionsCreated;
+    return transactionsCreated;
+  } catch (error) {
+    console.log(error);
+    throw new Error(errorMessages.default);
+  }
 }
 
 export const deleteTransaction = async (transactionId, user_id) => {
