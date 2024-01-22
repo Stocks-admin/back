@@ -306,3 +306,14 @@ export const deleteTransaction = async (transactionId, user_id) => {
     await db.$disconnect();
   }
 };
+
+export async function cleanUserTransactions(user_id) {
+  try {
+    await db.transactions.deleteMany({
+      where: { user_id },
+    });
+  } catch (error) {
+    console.log(error);
+    throw new Error(errorMessages.default);
+  }
+}
