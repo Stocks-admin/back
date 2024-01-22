@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createTransaction,
+  deleteTransaction,
   getUserTransactions,
   massiveLoadTransactions,
 } from "../controllers/transactionController.js";
@@ -95,7 +96,8 @@ transactions.post(
 
 transactions.get("/userTransactions", isAuthenticated, async (req, res) => {
   try {
-    const { offset, limit, dateFrom, dateTo } = req.query;
+    const { offset, limit, dateFrom, dateTo, symbol } = req.query;
+    console.log(req.query);
     const { authorization } = req.headers;
     const access_token = authorization.split(" ")[1];
     if (!access_token) {
@@ -114,13 +116,49 @@ transactions.get("/userTransactions", isAuthenticated, async (req, res) => {
       parseInt(offset) | 0,
       parseInt(limit) | 10,
       dateFrom,
-      dateTo
+      dateTo,
+      symbol
     );
-    // const total = await getUserTotalTransactions(payload.userId);
     res.status(200).send(resp);
   } catch (e) {
     res.status(500).send(e.toString());
   }
 });
+
+transactions.delete(
+  "/deleteTransaction/:transaction_id",
+  isAuthenticated,
+  async (req, res) => {
+    try {
+      const { transaction_id } = req.params;
+      const { authorization } = req.headers;
+      const access_token = authorization.split(" ")[1];
+
+      if (!access_token) {
+        return res.status(401).send({
+          message: "Missing access token. Unauthorized",
+        });
+      }
+      if (!transaction_id) {
+        return res
+          .status(500)
+          .send({ error: errorMessages.transaction.missingInfo });
+      }
+      const payload = jwt.verify(access_token, process.env.JWT_ACCESS_SECRET);
+      if (!payload?.userId) {
+        return res.status(401).send({
+          message: "Unauthorized.",
+        });
+      }
+      const resp = await deleteTransaction(
+        parseInt(transaction_id),
+        payload.userId
+      );
+      res.status(200).send(resp);
+    } catch (e) {
+      res.status(500).send(e.toString());
+    }
+  }
+);
 
 export default transactions;

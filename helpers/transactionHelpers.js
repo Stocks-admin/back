@@ -47,7 +47,7 @@ export async function calculateModesForAllUsersAndSymbols() {
   return query;
 }
 
-export async function isTransactionValid(
+export function isTransactionValid(
   transaction_type,
   symbol,
   amount_sold,

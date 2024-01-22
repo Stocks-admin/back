@@ -12,14 +12,16 @@ export function processExchangeRates(rates) {
   return processedRates;
 }
 
-export async function convertToUsd(amount, date = moment()) {
+export async function convertToUsd(amount, date = moment().format()) {
   if (!amount) return 1;
   let exchangeRate = 1;
-  if (date.isAfter(moment().startOf("day"))) {
+
+  if (moment(date).isAfter(moment().startOf("day"))) {
     exchangeRate = (await getCurrentDollarValue(date)).value;
   } else {
-    exchangeRate = (await getDollarValueOnDate(date.format("YYYY-MM-DD")))
-      .value;
+    exchangeRate = (
+      await getDollarValueOnDate(moment(date).format("YYYY-MM-DD"))
+    ).value;
   }
   return amount / exchangeRate;
 }
