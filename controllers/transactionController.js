@@ -2,6 +2,7 @@ import { Market, PrismaClient } from "@prisma/client";
 import {
   doesSymbolExist,
   filterNonExistentSymbols,
+  getSymbolBatch,
   getSymbolPrice,
 } from "./symbolController.js";
 import {
@@ -85,7 +86,7 @@ export async function createTransaction(transactionInfo, user_id) {
     if (!symbolExist) {
       throw new Error(errorMessages.symbol.notFound);
     }
-
+    const symbolBatch = await getSymbolBatch(transactionInfo.symbol);
     const { currency, ...restTransactionInfo } = transactionInfo;
     const symbolPrice =
       currency && currency === "ARS"
@@ -99,7 +100,7 @@ export async function createTransaction(transactionInfo, user_id) {
       ...restTransactionInfo,
       user_id,
       market: Market[transactionInfo.market.toUpperCase()] || Market.NASDAQ,
-      symbol_price: symbolPrice,
+      symbol_price: symbolPrice / symbolBatch,
     };
     return await db.transactions.create({
       data: {
@@ -182,7 +183,8 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
     throw new Error(errorMessages.massiveTransaction.emptyFile);
   }
   const symbols = transactionsFile.map((transaction) => transaction[1]);
-  const existentSymbols = await filterNonExistentSymbols(symbols);
+  const symbolsData = await filterNonExistentSymbols(symbols);
+  const existentSymbols = symbolsData.map(({ symbol }) => symbol);
   if (!existentSymbols || existentSymbols.length === 0) {
     throw new Error(errorMessages.massiveTransaction.invalidFile);
   }
@@ -192,7 +194,6 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
       const symbol = transaction[1];
       const amount_sold = transaction[2];
       const symbolPrice = transaction[3];
-      const currency = transaction[4];
       const market = transaction[5];
       const transaction_date = moment(
         (transaction[6] - 25569) * 86400 * 1000
@@ -222,10 +223,12 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
         currency && currency === "ARS"
           ? await convertToUsd(symbolPrice, transaction_date)
           : symbolPrice;
+      const symbolBatch = await getSymbolBatch(symbol);
+
       return {
         symbol,
         amount_sold,
-        symbol_price,
+        symbol_price: symbol_price / symbolBatch,
         transaction_type,
         market,
         transaction_date: moment(transaction_date).toDate(),
