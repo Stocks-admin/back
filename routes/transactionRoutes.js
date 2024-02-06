@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  cleanUserTransactions,
   createTransaction,
   deleteTransaction,
   getUserTransactions,
@@ -97,7 +98,6 @@ transactions.post(
 transactions.get("/userTransactions", isAuthenticated, async (req, res) => {
   try {
     const { offset, limit, dateFrom, dateTo, symbol } = req.query;
-    console.log(req.query);
     const { authorization } = req.headers;
     const access_token = authorization.split(" ")[1];
     if (!access_token) {
@@ -161,4 +161,30 @@ transactions.delete(
   }
 );
 
+transactions.delete(
+  "/deleteAllTransactions",
+  isAuthenticated,
+  async (req, res) => {
+    try {
+      const { authorization } = req.headers;
+      const access_token = authorization.split(" ")[1];
+
+      if (!access_token) {
+        return res.status(401).send({
+          message: "Missing access token. Unauthorized",
+        });
+      }
+      const payload = jwt.verify(access_token, process.env.JWT_ACCESS_SECRET);
+      if (!payload?.userId) {
+        return res.status(401).send({
+          message: "Unauthorized.",
+        });
+      }
+      const resp = await cleanUserTransactions(payload.userId);
+      res.status(200).send(resp);
+    } catch (e) {
+      res.status(500).send(e.toString());
+    }
+  }
+);
 export default transactions;
