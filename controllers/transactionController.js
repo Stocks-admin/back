@@ -35,8 +35,8 @@ export async function getUserTransactions(
   if (symbol) {
     whereConditions.symbol = symbol;
   }
-  const from = new Date(dateFrom);
-  const to = new Date(dateTo);
+  const from = moment(dateFrom).toDate();
+  const to = moment(dateTo).toDate();
 
   if (from && to && from < to && from < new Date()) {
     whereConditions.transaction_date = {
@@ -47,8 +47,8 @@ export async function getUserTransactions(
   const transactions = await db.transactions.findMany({
     where: whereConditions,
     orderBy: { transaction_date: "desc" },
-    skip: offset,
-    take: limit,
+    // skip: offset,
+    // take: limit,
   });
   const promises = transactions.map(async (transaction) => {
     if (transaction.transaction_type === "sell") {
@@ -134,7 +134,7 @@ export async function getSymbolAveragePrice(symbol, user_id) {
   //Se utiliza para calcular el PPP del simbolo
   const averagePrice = await db.$queryRaw`
     SELECT
-      COALESCE(SUM(amount_sold * symbol_price) / SUM(amount_sold), 0) AS average_price
+      COALESCE(SUM(amount_sold * symbol_price) / SUM(amount_sold), 1) AS average_price
     FROM
       transactions
     WHERE
@@ -150,14 +150,15 @@ export async function getPortfolioAveragePrice(user_id) {
     SELECT
       symbol,
       market,
-      COALESCE(SUM(amount_sold * symbol_price) / SUM(amount_sold), 0) AS average_price
+      COALESCE(SUM(amount_sold * symbol_price) / NULLIF(SUM(amount_sold), 0), 1) AS average_price
     FROM
       transactions
     WHERE
       user_id = ${user_id} AND transaction_type = 'buy'
     GROUP BY
       symbol, market;
-  `;
+`;
+
   if (averagePrice.length > 0) {
     return averagePrice.reduce((acc, item) => {
       // Convierte el mercado a minúsculas para el formato de clave

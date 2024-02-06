@@ -1,20 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { getSymbolPrice, getSymbolPriceOnDate } from "./symbolController.js";
-import { calculateModes } from "../helpers/transactionHelpers.js";
 import { benchmarkInterval } from "../helpers/dateHelpers.js";
 import {
-  getCurrentDollarValue,
-  getDollarValueBetweenDates,
   getDollarValueOnDate,
-  getUvaValueBetweenDates,
   getUvaValueOnDate,
 } from "./currencyController.js";
-import { processExchangeRates } from "../helpers/currencyHelpers.js";
 import moment from "moment";
-import {
-  getPortfolioAveragePrice,
-  getSymbolAveragePrice,
-} from "./transactionController.js";
+import { getPortfolioAveragePrice } from "./transactionController.js";
 
 const db = new PrismaClient();
 

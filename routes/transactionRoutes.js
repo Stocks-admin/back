@@ -98,7 +98,6 @@ transactions.post(
 transactions.get("/userTransactions", isAuthenticated, async (req, res) => {
   try {
     const { offset, limit, dateFrom, dateTo, symbol } = req.query;
-    console.log(req.query);
     const { authorization } = req.headers;
     const access_token = authorization.split(" ")[1];
     if (!access_token) {
