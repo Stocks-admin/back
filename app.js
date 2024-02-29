@@ -15,11 +15,7 @@ const db = new PrismaClient();
 const app = express();
 
 const corsOptions = {
-  origin: [
-    "https://development.d2jiei2auzx96a.amplifyapp.com",
-    "https://production.d2jiei2auzx96a.amplifyapp.com",
-    "http://localhost:3000",
-  ],
+  origin: [process.env.FRONTEND_URL],
   optionsSuccessStatus: 200,
   methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
   credentials: true,
