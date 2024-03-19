@@ -12,7 +12,7 @@ export async function getSymbolPrice(symbol, market = "nASDAQ") {
     );
     if (resp.status === 200) {
       return {
-        price: resp.data.value,
+        value: resp.data.value,
         type: resp.data.type,
         organization: resp.data.organization,
         bond_info: resp.data.bond,

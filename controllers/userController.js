@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import {
   getMultiSymbolPrice,
-  getSymbolPrice,
   getSymbolPriceOnDate,
 } from "./symbolController.js";
 import { benchmarkInterval } from "../helpers/dateHelpers.js";
