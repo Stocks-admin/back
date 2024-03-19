@@ -15,10 +15,38 @@ export async function getSymbolPrice(symbol, market = "nASDAQ") {
         price: resp.data.value,
         type: resp.data.type,
         organization: resp.data.organization,
+        bond_info: resp.data.bond,
       };
     } else {
       throw new Error("Error al obtener el precio del simbolo");
     }
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function getMultiSymbolPrice(symbolsArray) {
+  try {
+    let symbols = [];
+    let markets = [];
+    symbolsArray.forEach((symbol) => {
+      symbols.push(symbol.symbol);
+      markets.push(symbol.market);
+    });
+    return axiosInstance
+      .get("stocks/multi-current-value", {
+        params: { symbols: symbols.join(","), markets: markets.join(",") },
+      })
+      .then((resp) => {
+        if (resp.status === 200) {
+          return resp.data;
+        } else {
+          return [];
+        }
+      })
+      .catch((error) => {
+        throw error;
+      });
   } catch (error) {
     throw error;
   }
