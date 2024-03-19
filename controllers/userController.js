@@ -1,5 +1,9 @@
 import { PrismaClient } from "@prisma/client";
-import { getSymbolPrice, getSymbolPriceOnDate } from "./symbolController.js";
+import {
+  getMultiSymbolPrice,
+  getSymbolPrice,
+  getSymbolPriceOnDate,
+} from "./symbolController.js";
 import { benchmarkInterval } from "../helpers/dateHelpers.js";
 import {
   getDollarValueOnDate,
@@ -55,20 +59,36 @@ export async function getUserPortfolio(user_id) {
     // DROP TEMPORARY TABLE IF EXISTS en PostgreSQL
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
     const portfolioPurchasePrice = await getPortfolioAveragePrice(user_id);
-    const updatedPortfolio = await Promise.all(
-      portfolio.map(async (stock) => {
-        const current_price = await getSymbolPrice(stock.symbol, stock.market);
+    const symbols = portfolio.map((stock) => ({
+      symbol: stock.symbol,
+      market: stock.market,
+    }));
+    const prices = await getMultiSymbolPrice(symbols);
+    const updatedPortfolio = portfolio.map((stock) => {
+      const current = prices.find((price) => price.symbol === stock.symbol);
+      if (current) {
         return {
           ...stock,
-          type: current_price.type,
-          organization: current_price.organization,
-          current_price: current_price.price || 0,
+          hasError: false,
+          type: current.type,
+          organization: current.organization,
+          bond_info: current.bond,
+          current_price: current.value || 0,
           purchase_price:
             portfolioPurchasePrice[stock.symbol][stock.market.toLowerCase()] ||
             0,
         };
-      })
-    );
+      } else {
+        return {
+          ...stock,
+          hasError: true,
+          current_price: 0,
+          purchase_price:
+            portfolioPurchasePrice[stock.symbol][stock.market.toLowerCase()] ||
+            0,
+        };
+      }
+    });
     return updatedPortfolio;
   } catch (error) {
     return [];
@@ -339,8 +359,6 @@ export async function getUserBenchmark(user_id, interval = "weekly") {
       getUvaBenchmark(intervalSeeked, portfolioValues),
     ]);
 
-    console.log("Benchmarks: ", benchmarks);
-
     return {
       dollar: benchmarks[0],
       uva: benchmarks[1],
@@ -393,7 +411,6 @@ async function getUvaBenchmark(interval, portfolioValues) {
         100 || 0;
     return portfolioVariation - uvaVariation;
   } catch (error) {
-    console.log("Error: ", error);
     return 0;
   }
 }
