@@ -5,6 +5,7 @@ import {
 } from "../controllers/symbolController.js";
 import axios from "axios";
 import errorMessages from "../constants/errorMessages.js";
+import moment from "moment";
 
 const stocks = express.Router();
 
@@ -17,7 +18,11 @@ stocks.get("/symbolValue/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
     const { market, date } = req.query;
-    if (date) {
+    if (
+      date &&
+      moment(date).isValid() &&
+      moment(date).startOf("day").isBefore(moment().startOf("day"))
+    ) {
       const resp = await getSymbolPriceOnDate(symbol, market, date);
       res.status(200).send(resp);
     } else {
@@ -25,6 +30,7 @@ stocks.get("/symbolValue/:symbol", async (req, res) => {
       res.status(200).send(resp);
     }
   } catch (e) {
+    console.log(e);
     res.status(500).send(errorMessages.symbol.priceNotFound);
   }
 });

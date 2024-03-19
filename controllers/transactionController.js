@@ -3,7 +3,6 @@ import {
   doesSymbolExist,
   filterNonExistentSymbols,
   getSymbolBatch,
-  getSymbolPrice,
 } from "./symbolController.js";
 import {
   calculateModes,
@@ -146,36 +145,40 @@ export async function getSymbolAveragePrice(symbol, user_id) {
 
 export async function getPortfolioAveragePrice(user_id) {
   //Se utiliza para calcular el PPP del portfolio
-  const averagePrice = await db.$queryRaw`
-    SELECT
-      symbol,
-      market,
-      COALESCE(SUM(amount_sold * symbol_price) / NULLIF(SUM(amount_sold), 0), 1) AS average_price
-    FROM
-      transactions
-    WHERE
-      user_id = ${user_id} AND transaction_type = 'buy'
-    GROUP BY
-      symbol, market;
-`;
+  try {
+    const averagePrice = await db.$queryRaw`
+      SELECT
+        symbol,
+        market,
+        COALESCE(SUM(amount_sold * symbol_price) / NULLIF(SUM(amount_sold), 0), 1) AS average_price
+      FROM
+        transactions
+      WHERE
+        user_id = ${user_id} AND transaction_type = 'buy'
+      GROUP BY
+        symbol, market;
+  `;
 
-  if (averagePrice.length > 0) {
-    return averagePrice.reduce((acc, item) => {
-      // Convierte el mercado a minúsculas para el formato de clave
-      const marketKey = item.market.toLowerCase();
+    if (averagePrice.length > 0) {
+      return averagePrice.reduce((acc, item) => {
+        // Convierte el mercado a minúsculas para el formato de clave
+        const marketKey = item.market.toLowerCase();
 
-      // Si el símbolo ya existe en el acumulador, solo añade el mercado y el precio
-      if (acc[item.symbol]) {
-        acc[item.symbol][marketKey] = item.average_price;
-      } else {
-        // Si el símbolo no existe, crea un nuevo objeto
-        acc[item.symbol] = { [marketKey]: item.average_price };
-      }
+        // Si el símbolo ya existe en el acumulador, solo añade el mercado y el precio
+        if (acc[item.symbol]) {
+          acc[item.symbol][marketKey] = item.average_price;
+        } else {
+          // Si el símbolo no existe, crea un nuevo objeto
+          acc[item.symbol] = { [marketKey]: item.average_price };
+        }
 
-      return acc;
-    }, {});
+        return acc;
+      }, {});
+    }
+    return [];
+  } catch (error) {
+    return [];
   }
-  return [];
 }
 
 export async function massiveLoadTransactions(user_id, transactionsFile) {
