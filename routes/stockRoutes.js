@@ -6,6 +6,10 @@ import {
 import axios from "axios";
 import errorMessages from "../constants/errorMessages.js";
 import moment from "moment";
+import {
+  getCurrentDollarValue,
+  getDollarValueOnDate,
+} from "../controllers/currencyController.js";
 
 const stocks = express.Router();
 
@@ -24,10 +28,12 @@ stocks.get("/symbolValue/:symbol", async (req, res) => {
       moment(date).startOf("day").isBefore(moment().startOf("day"))
     ) {
       const resp = await getSymbolPriceOnDate(symbol, market, date);
-      res.status(200).send(resp);
+      const conversionRate = await getDollarValueOnDate(date);
+      res.status(200).send({ ...resp, conversionRate });
     } else {
       const resp = await getSymbolPrice(symbol, market);
-      res.status(200).send(resp);
+      const conversionRate = await getCurrentDollarValue();
+      res.status(200).send({ ...resp, conversionRate });
     }
   } catch (e) {
     console.log(e);
