@@ -35,13 +35,28 @@ enum Market {
 }
 
 model user {
-  user_id  Int      @id @default(autoincrement())
-  email    String   @unique
-  password String
-  name     String
-  phone    String?
-  created  DateTime @default(now())
-  updated  DateTime @default(now()) @updatedAt
+  user_id    Int          @id @default(autoincrement())
+  email      String       @unique
+  password   String
+  name       String
+  phone      String?
+  created    DateTime     @default(now())
+  updated    DateTime     @default(now()) @updatedAt
+  user_roles user_roles[]
+}
+
+model user_roles {
+  user_id Int
+  role    Role
+
+  User user @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@id([user_id, role])
+}
+
+enum Role {
+  ADMIN
+  USER
 }
 
 model portfolio_snapshots {

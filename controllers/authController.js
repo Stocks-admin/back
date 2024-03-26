@@ -23,6 +23,9 @@ export async function getUserByEmail(email) {
       where: {
         email,
       },
+      include: {
+        user_roles: true,
+      },
     });
     return user;
   } catch (error) {

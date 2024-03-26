@@ -5,6 +5,7 @@ import {
 } from "./symbolController.js";
 import { benchmarkInterval } from "../helpers/dateHelpers.js";
 import {
+  getCurrentDollarValue,
   getDollarValueOnDate,
   getUvaValueOnDate,
 } from "./currencyController.js";
@@ -30,6 +31,7 @@ export async function getUserPortfolio(user_id) {
               user_id,
               symbol,
               market,
+
               SUM(amount) AS total_snapshot_amount
           FROM
               portfolio_snapshots
@@ -60,31 +62,30 @@ export async function getUserPortfolio(user_id) {
     const portfolioPurchasePrice = await getPortfolioAveragePrice(user_id);
     const symbols = portfolio.map((stock) => ({
       symbol: stock.symbol,
-      market: stock.market,
+      market: stock?.market ? stock.market : null,
     }));
     const prices = await getMultiSymbolPrice(symbols);
     const updatedPortfolio = portfolio.map((stock) => {
       const current = prices.find((price) => price.symbol === stock.symbol);
+      const market = stock?.market ? stock.market.toLowerCase() : "Currency";
       if (current) {
         return {
           ...stock,
           hasError: false,
+          price_currency: current?.price_currency || "USD",
           type: current.type,
           organization: current.organization,
           bond_info: current.bond,
+          currency_info: current.currency,
           current_price: current.value || 0,
-          purchase_price:
-            portfolioPurchasePrice[stock.symbol][stock.market.toLowerCase()] ||
-            0,
+          purchase_price: portfolioPurchasePrice[stock.symbol][market] || 0,
         };
       } else {
         return {
           ...stock,
           hasError: true,
           current_price: 0,
-          purchase_price:
-            portfolioPurchasePrice[stock.symbol][stock.market.toLowerCase()] ||
-            0,
+          purchase_price: portfolioPurchasePrice[stock.symbol][market] || 0,
         };
       }
     });
@@ -234,10 +235,16 @@ export async function updateUserSnapshotsFromDate(user_id, symbol, date) {
 export async function getUserPortfolioValue(user_id) {
   try {
     const portfolio = await getUserPortfolio(user_id);
-    const portfolioValue = portfolio.reduce(
-      (acc, curr) => acc + curr.current_price * curr.final_amount,
-      0
-    );
+    const portfolioValue = await portfolio.reduce(async (acc, curr) => {
+      if (curr.price_currency === "USD") {
+        return acc + curr.current_price * curr.final_amount;
+      } else {
+        const conversionRate = await getCurrentDollarValue();
+        return (
+          acc + (curr.current_price * curr.final_amount) / conversionRate.value
+        );
+      }
+    }, 0);
     return portfolioValue;
   } catch (error) {
     return 0;

@@ -137,7 +137,8 @@ export async function getSymbolBatch(symbol) {
     const resp = await axiosInstance.get(`stocks/batch`, {
       symbol,
     });
-    if (resp.status === 200) {
+    console.log("resp", resp);
+    if (resp.status === 200 && resp.data.batch) {
       return resp.data.batch;
     } else {
       return 1;
