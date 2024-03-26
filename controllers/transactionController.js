@@ -95,16 +95,38 @@ export async function createTransaction(transactionInfo, user_id) {
           )
         : transactionInfo.symbol_price;
 
+    console.log("symbolPrice", symbolPrice);
+    console.log("symbolBatch", symbolBatch);
+
     const data = {
       ...restTransactionInfo,
       user_id,
-      market: Market[transactionInfo.market.toUpperCase()] || Market.NASDAQ,
+      market: transactionInfo?.market
+        ? Market[transactionInfo?.market?.toUpperCase()]
+        : null,
       symbol_price: symbolPrice / symbolBatch,
     };
-    return await db.transactions.create({
-      data: {
-        ...data,
-      },
+
+    return await db.$transaction(async (prisma) => {
+      const transaction = await prisma.transactions.create({
+        data,
+      });
+
+      if (transaction.transaction_type === "sell" && currency === "USD") {
+        await db.transactions.create({
+          data: {
+            user_id,
+            symbol: "USD",
+            amount_sold: transaction.amount_sold * transaction.symbol_price,
+            symbol_price: 1,
+            transaction_type: "buy",
+            market: null,
+            transaction_date: transaction.transaction_date,
+          },
+        });
+      }
+
+      return transaction;
     });
   } catch (error) {
     console.log(error);
@@ -113,20 +135,22 @@ export async function createTransaction(transactionInfo, user_id) {
 }
 
 export async function updatePortfolioTable() {
-  await db.$queryRaw`
-    CREATE TEMPORARY TABLE tmp_user_portfolio_updates AS
-      SELECT * FROM user_portfolio_snapshots;
-    `;
+  await db.$transaction(async (prisma) => {
+    await prisma.$queryRaw`
+      CREATE TEMPORARY TABLE tmp_user_portfolio_updates AS
+        SELECT * FROM portfolio_snapshots;
+      `;
 
-  await db.$queryRaw`
-    UPDATE user_portfolio up
-      JOIN tmp_user_portfolio_updates tmp
-        ON up.user_id = tmp.user_id AND up.symbol = tmp.symbol
-        SET up.amount = up.amount + tmp.amount,
-            up.updated_at = NOW();
-    `;
+    await prisma.$queryRaw`
+      UPDATE user_portfolio up
+        JOIN tmp_user_portfolio_updates tmp
+          ON up.user_id = tmp.user_id AND up.symbol = tmp.symbol
+          SET up.amount = up.amount + tmp.amount,
+              up.updated_at = NOW();
+      `;
 
-  await db.$queryRaw`DROP TEMPORARY TABLE IF EXISTS tmp_user_portfolio_updates;`;
+    await prisma.$queryRaw`DROP TEMPORARY TABLE IF EXISTS tmp_user_portfolio_updates;`;
+  });
 }
 
 export async function getSymbolAveragePrice(symbol, user_id) {
@@ -162,7 +186,9 @@ export async function getPortfolioAveragePrice(user_id) {
     if (averagePrice.length > 0) {
       return averagePrice.reduce((acc, item) => {
         // Convierte el mercado a minúsculas para el formato de clave
-        const marketKey = item.market.toLowerCase();
+        const marketKey = item?.market
+          ? item?.market?.toLowerCase()
+          : "Currency";
 
         // Si el símbolo ya existe en el acumulador, solo añade el mercado y el precio
         if (acc[item.symbol]) {
@@ -181,7 +207,24 @@ export async function getPortfolioAveragePrice(user_id) {
   }
 }
 
-export async function massiveLoadTransactions(user_id, transactionsFile) {
+export async function multiCreateTransactions(transactions, user_id) {
+  const data = transactions.filter((transaction) => {
+    return isTransactionValid(
+      transaction.transaction_type,
+      transaction.symbol,
+      transaction.amount_sold,
+      transaction.symbol_price,
+      transaction.market,
+      transaction.transaction_date
+    );
+  });
+
+  return await db.transactions.createMany({
+    data,
+  });
+}
+
+export async function massiveLoadTransactionsButter(user_id, transactionsFile) {
   try {
     transactionsFile.shift().filter((transaction) => transaction.length > 0);
     if (transactionsFile.length === 0) {
@@ -242,10 +285,68 @@ export async function massiveLoadTransactions(user_id, transactionsFile) {
       });
 
     const data = await Promise.all(parsedTransactions);
+    const transactionsCreated = await multiCreateTransactions(data, user_id);
 
-    const transactionsCreated = await db.transactions.createMany({
-      data,
-    });
+    return transactionsCreated;
+  } catch (error) {
+    console.log(error);
+    throw new Error(errorMessages.default);
+  }
+}
+
+export async function massiveLoadTransactionsCocos(
+  user_id,
+  transactionsFile,
+  symbol,
+  market
+) {
+  try {
+    transactionsFile.shift();
+    if (transactionsFile.length === 0) {
+      throw new Error(errorMessages.massiveTransaction.emptyFile);
+    }
+    const parsedTransactions = transactionsFile
+      .filter((transaction) => {
+        if (transaction.length < 5) {
+          return false;
+        }
+        const transaction_type = transaction[1] === "Compra" ? "buy" : "sell";
+        const amount_sold = transaction[2];
+        const symbolPrice = transaction[3];
+        const transaction_date = moment(transaction[0]).format();
+        const isValid = isTransactionValid(
+          transaction_type,
+          symbol,
+          amount_sold,
+          symbolPrice,
+          market,
+          transaction_date
+        );
+        return isValid;
+      })
+      .map(async (transaction) => {
+        const transaction_type = transaction[1] === "Compra" ? "buy" : "sell";
+        const amount_sold = parseInt(transaction[2]);
+        const symbolPrice = parseFloat(transaction[3]);
+        const currency = transaction[4];
+        const symbol_price =
+          currency === "ARS"
+            ? await convertToUsd(symbolPrice, transaction[0])
+            : symbolPrice;
+        const transaction_date = moment(transaction[0], "YYYY-MM-DD").format();
+        return {
+          symbol,
+          amount_sold,
+          symbol_price,
+          transaction_type,
+          market: market.toUpperCase(),
+          transaction_date: moment(transaction_date).toDate(),
+          user_id,
+        };
+      });
+
+    const data = await Promise.all(parsedTransactions);
+    const transactionsCreated = await multiCreateTransactions(data, user_id);
     return transactionsCreated;
   } catch (error) {
     console.log(error);

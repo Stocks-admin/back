@@ -4,7 +4,8 @@ import {
   createTransaction,
   deleteTransaction,
   getUserTransactions,
-  massiveLoadTransactions,
+  massiveLoadTransactionsButter,
+  massiveLoadTransactionsCocos,
 } from "../controllers/transactionController.js";
 import { isAuthenticated } from "../middlewares.js";
 import jwt from "jsonwebtoken";
@@ -25,8 +26,7 @@ transactions.post("/createTransaction", isAuthenticated, async (req, res) => {
       !body.amount_sold ||
       !body.transaction_type ||
       !body.transaction_date ||
-      !body.symbol_price ||
-      !body.market
+      !body.symbol_price
     ) {
       return res
         .status(500)
@@ -83,11 +83,51 @@ transactions.post(
       if (workSheetsFromFile?.length === 0) {
         return res.status(500).send({ error: errorMessages.invalidFile });
       }
-      const transactions = await massiveLoadTransactions(
+      const transactions = await massiveLoadTransactionsButter(
         payload.userId,
         workSheetsFromFile[0].data
       );
       return res.status(200).send({ transactions });
+    } catch (e) {
+      console.log("ERROR", e);
+      res.status(500).send({ error: errorMessages.default });
+    }
+  }
+);
+
+transactions.post(
+  "/massiveCreateTransactionCocos",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const { authorization } = req.headers;
+      const access_token = authorization.split(" ")[1];
+      if (!access_token) {
+        return res.status(401).send(errorMessages.unauthorized);
+      }
+      const payload = jwt.verify(access_token, process.env.JWT_ACCESS_SECRET);
+      if (!payload?.userId) {
+        return res.status(401).send(errorMessages.unauthorized);
+      }
+      const { file } = req;
+      if (!file) {
+        return res.status(500).send({ error: errorMessages.invalidFile });
+      }
+      const workSheetsFromFile = xlsx.parse(file.buffer);
+      if (workSheetsFromFile?.length === 0) {
+        return res.status(500).send({ error: errorMessages.invalidFile });
+      }
+      const { symbol, market } = req.body;
+      if (!symbol || !market) {
+        return res.status(500).send({ error: errorMessages.invalidFile });
+      }
+      const transactionsResponse = await massiveLoadTransactionsCocos(
+        payload.userId,
+        workSheetsFromFile[0].data,
+        symbol,
+        market
+      );
+      return res.status(200).send({ transactions: transactionsResponse });
     } catch (e) {
       console.log("ERROR", e);
       res.status(500).send({ error: errorMessages.default });
