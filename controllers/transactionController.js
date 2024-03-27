@@ -207,7 +207,7 @@ export async function getPortfolioAveragePrice(user_id) {
   }
 }
 
-export async function multiCreateTransactions(transactions, user_id) {
+export async function multiCreateTransactions(transactions) {
   const data = transactions.filter((transaction) => {
     return isTransactionValid(
       transaction.transaction_type,
@@ -219,8 +219,37 @@ export async function multiCreateTransactions(transactions, user_id) {
     );
   });
 
-  return await db.transactions.createMany({
-    data,
+  return await db.$transaction(async (prisma) => {
+    const dollarPurchases = data.filter(
+      (transaction) =>
+        transaction.transaction_type === "sell" &&
+        transaction.currency === "USD"
+    );
+
+    const dollarPurchasesData = dollarPurchases.map((transaction) => {
+      return {
+        user_id: transaction.user_id,
+        symbol: "USD",
+        amount_sold: transaction.amount_sold * transaction.symbol_price,
+        symbol_price: 1,
+        transaction_type: "buy",
+        market: null,
+        transaction_date: transaction.transaction_date,
+      };
+    });
+
+    if (dollarPurchasesData.length > 0) {
+      await prisma.transactions.createMany({
+        data: dollarPurchasesData,
+      });
+    }
+
+    return await prisma.transactions.createMany({
+      data: data.map((transaction) => {
+        const { currency, ...rest } = transaction;
+        return rest;
+      }),
+    });
   });
 }
 
@@ -281,11 +310,12 @@ export async function massiveLoadTransactionsButter(user_id, transactionsFile) {
           market,
           transaction_date: moment(transaction_date).toDate(),
           user_id,
+          currency,
         };
       });
 
     const data = await Promise.all(parsedTransactions);
-    const transactionsCreated = await multiCreateTransactions(data, user_id);
+    const transactionsCreated = await multiCreateTransactions(data);
 
     return transactionsCreated;
   } catch (error) {
@@ -305,13 +335,15 @@ export async function massiveLoadTransactionsCocos(
     if (transactionsFile.length === 0) {
       throw new Error(errorMessages.massiveTransaction.emptyFile);
     }
+    const batch = await getSymbolBatch(symbol);
     const parsedTransactions = transactionsFile
       .filter((transaction) => {
         if (transaction.length < 5) {
           return false;
         }
         const transaction_type = transaction[1] === "Compra" ? "buy" : "sell";
-        const amount_sold = transaction[2];
+        const amount_sold =
+          transaction[2] < 0 ? transaction[2] * -1 : transaction[2];
         const symbolPrice = transaction[3];
         const transaction_date = moment(transaction[0]).format();
         const isValid = isTransactionValid(
@@ -326,13 +358,15 @@ export async function massiveLoadTransactionsCocos(
       })
       .map(async (transaction) => {
         const transaction_type = transaction[1] === "Compra" ? "buy" : "sell";
-        const amount_sold = parseInt(transaction[2]);
+        const amount_sold = parseInt(
+          transaction[2] < 0 ? transaction[2] * -1 : transaction[2]
+        );
         const symbolPrice = parseFloat(transaction[3]);
         const currency = transaction[4];
         const symbol_price =
           currency === "ARS"
-            ? await convertToUsd(symbolPrice, transaction[0])
-            : symbolPrice;
+            ? await convertToUsd(symbolPrice / batch, transaction[0])
+            : symbolPrice / batch;
         const transaction_date = moment(transaction[0], "YYYY-MM-DD").format();
         return {
           symbol,
@@ -342,11 +376,12 @@ export async function massiveLoadTransactionsCocos(
           market: market.toUpperCase(),
           transaction_date: moment(transaction_date).toDate(),
           user_id,
+          currency,
         };
       });
 
     const data = await Promise.all(parsedTransactions);
-    const transactionsCreated = await multiCreateTransactions(data, user_id);
+    const transactionsCreated = await multiCreateTransactions(data);
     return transactionsCreated;
   } catch (error) {
     console.log(error);
