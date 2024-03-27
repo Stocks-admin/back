@@ -135,11 +135,10 @@ export async function getRandomSymbol(limit = 10) {
 export async function getSymbolBatch(symbol) {
   try {
     const resp = await axiosInstance.get(`stocks/batch`, {
-      symbol,
+      params: { symbol },
     });
-    console.log("resp", resp);
-    if (resp.status === 200 && resp.data.batch) {
-      return resp.data.batch;
+    if (resp.status === 200 && resp.data.value) {
+      return resp.data.value;
     } else {
       return 1;
     }
