@@ -357,7 +357,7 @@ export async function massiveLoadTransactionsCocos(
         return isValid;
       })
       .map(async (transaction) => {
-        const transaction_type = transaction[1] === "Compra" ? "buy" : "sell";
+        const transaction_type = transaction[2] > 0 ? "buy" : "sell";
         const amount_sold = parseInt(
           transaction[2] < 0 ? transaction[2] * -1 : transaction[2]
         );

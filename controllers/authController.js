@@ -41,6 +41,11 @@ export async function createUser(email, password, name, phone) {
         password: hashSync(password, 10),
         name,
         phone,
+        user_roles: {
+          create: {
+            role: "USER",
+          },
+        },
       },
     });
     return user;
