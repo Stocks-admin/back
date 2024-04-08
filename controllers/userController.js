@@ -64,10 +64,15 @@ export async function getUserPortfolio(user_id) {
       symbol: stock.symbol,
       market: stock?.market ? stock.market : null,
     }));
+    console.log("PORTFOLIO", portfolio);
     const prices = await getMultiSymbolPrice(symbols);
     const updatedPortfolio = portfolio.map((stock) => {
       const current = prices.find((price) => price.symbol === stock.symbol);
       const market = stock?.market ? stock.market.toLowerCase() : "Currency";
+      let purchasePrice = 0;
+      if (portfolioPurchasePrice[stock.symbol]) {
+        purchasePrice = portfolioPurchasePrice[stock.symbol][market];
+      }
       if (current) {
         return {
           ...stock,
@@ -78,19 +83,21 @@ export async function getUserPortfolio(user_id) {
           bond_info: current.bond,
           currency_info: current.currency,
           current_price: current.value || 0,
-          purchase_price: portfolioPurchasePrice[stock.symbol][market] || 0,
+          purchase_price: purchasePrice,
         };
       } else {
         return {
           ...stock,
           hasError: true,
           current_price: 0,
-          purchase_price: portfolioPurchasePrice[stock.symbol][market] || 0,
+          purchase_price: purchasePrice,
         };
       }
     });
+    console.log("UPDATED PORTFOLIO", updatedPortfolio);
     return updatedPortfolio;
   } catch (error) {
+    console.log("PORTFOLIO_ERROR", error);
     return [];
   }
 }
@@ -295,15 +302,24 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
 
     const portfolioValue = await Promise.all(
       portfolio.map(async (stock) => {
-        const current_price = await getSymbolPriceOnDate(
+        return getSymbolPriceOnDate(
           stock.symbol,
-          stock?.market,
+          stock?.market || "nASDAQ",
           date
-        );
-        return {
-          ...stock,
-          current_price: parseInt(current_price.value) || 0,
-        };
+        )
+          .then((current_price) => {
+            return {
+              ...stock,
+              current_price: parseInt(current_price.value) || 0,
+            };
+          })
+          .catch((error) => {
+            console.log(error);
+            return {
+              ...stock,
+              current_price: 0,
+            };
+          });
       })
     );
     return portfolioValue.reduce(
@@ -311,6 +327,7 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
       0
     );
   } catch (error) {
+    console.log(error);
     return 0;
   }
 }
@@ -337,9 +354,9 @@ export async function getUserInfo(user_id) {
   }
 }
 
-export async function getUserBenchmark(user_id, interval = "weekly") {
+export async function getUserBenchmark(user_id, interval = "yearly") {
   const intervalSeeked =
-    benchmarkInterval[interval] || benchmarkInterval.weekly;
+    benchmarkInterval[interval] || benchmarkInterval.yearly;
 
   console.log("Interval seeked: ", intervalSeeked);
   try {
@@ -353,18 +370,14 @@ export async function getUserBenchmark(user_id, interval = "weekly") {
       end: portfolioValuesPromises[1],
     };
     console.log("Portfolio values: ", portfolioValues);
-    if (
-      !portfolioValues.start ||
-      !portfolioValues.end ||
-      (portfolioValues.start === 0 && portfolioValues.end === 0)
-    )
+    if (!portfolioValues.start || !portfolioValues.end)
       return { dollar: 0, uva: 0 };
 
     const benchmarks = await Promise.all([
       getDollarBenchmark(intervalSeeked, portfolioValues),
       getUvaBenchmark(intervalSeeked, portfolioValues),
     ]);
-
+    console.log("Benchmarks: ", benchmarks);
     return {
       dollar: benchmarks[0],
       uva: benchmarks[1],
@@ -394,7 +407,8 @@ async function getDollarBenchmark(interval, portfolioValues) {
         dollarValues?.start?.value) *
       100;
     const portfolioVariation =
-      ((portfolioValues.end - portfolioValues.start) / portfolioValues.start) *
+      ((portfolioValues.end - portfolioValues.start) /
+        (portfolioValues.start || 1)) *
         100 || 0;
     return portfolioVariation - dollarVariation;
   } catch (error) {
@@ -419,4 +433,16 @@ async function getUvaBenchmark(interval, portfolioValues) {
   } catch (error) {
     return 0;
   }
+}
+
+export async function getAllUsers() {
+  return await db.user.findMany({
+    select: {
+      user_id: true,
+      email: true,
+      name: true,
+      phone: true,
+      user_roles: true,
+    },
+  });
 }

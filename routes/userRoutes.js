@@ -1,6 +1,7 @@
 import express from "express";
 import pkg from "apicache";
 import {
+  getAllUsers,
   getUserBenchmark,
   getUserInfo,
   getUserPortfolio,
@@ -62,6 +63,15 @@ user.get("/benchmark", isAuthenticated, async (req, res) => {
     }
     const resp = await getUserBenchmark(payload.userId, interval);
     return res.status(200).send(resp);
+  } catch (e) {
+    res.status(500).send(e.toString());
+  }
+});
+
+user.get("/allUsers", async (req, res) => {
+  try {
+    const resp = await getAllUsers();
+    res.status(200).send(resp);
   } catch (e) {
     res.status(500).send(e.toString());
   }
