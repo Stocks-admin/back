@@ -446,3 +446,18 @@ export async function getAllUsers() {
     },
   });
 }
+
+export async function userIsAdmin(user_id) {
+  return db.user
+    .findUnique({
+      where: {
+        user_id,
+      },
+      include: {
+        user_roles: true,
+      },
+    })
+    .then((user) => {
+      return user.user_roles.some((role) => role.role === "admin");
+    });
+}

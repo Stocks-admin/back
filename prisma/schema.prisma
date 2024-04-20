@@ -35,14 +35,15 @@ enum Market {
 }
 
 model user {
-  user_id    Int          @id @default(autoincrement())
-  email      String       @unique
-  password   String
-  name       String
-  phone      String?
-  created    DateTime     @default(now())
-  updated    DateTime     @default(now()) @updatedAt
-  user_roles user_roles[]
+  user_id        Int              @id @default(autoincrement())
+  email          String           @unique
+  password       String
+  name           String
+  phone          String?
+  created        DateTime         @default(now())
+  updated        DateTime         @default(now()) @updatedAt
+  user_roles     user_roles[]
+  password_reset password_reset[]
 }
 
 model user_roles {
@@ -92,4 +93,19 @@ view portfolio_snapshots_updates {
 enum Transaction_type {
   buy
   sell
+}
+
+model email_logs {
+  log_id      Int      @id @default(autoincrement())
+  log_date    DateTime @default(now())
+  log_message String
+  log_code    Int?
+}
+
+model password_reset {
+  user_id         Int
+  code            String   @id @unique
+  expiration_date DateTime
+  expirated       Boolean  @default(false)
+  User            user     @relation(fields: [user_id], references: [user_id])
 }
