@@ -1,9 +1,13 @@
 import express from "express";
 import {
   createUser,
+  generateRecoveryToken,
   getUserByEmail,
   getUserById,
+  getUserByResetToken,
   hashToken,
+  isRecoveryTokenValid,
+  updatePassword,
 } from "../controllers/authController.js";
 import { compare } from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
@@ -12,11 +16,13 @@ import {
   deleteRefreshToken,
   findRefreshTokenById,
   generateTokens,
+  impersonateTokens,
   revokeTokens,
 } from "../utils/jwt.js";
 import jwt from "jsonwebtoken";
 import { getUserInfo } from "../controllers/userController.js";
 import errorMessages from "../constants/errorMessages.js";
+import { sendPasswordRecoveryEmail } from "../controllers/emailController.js";
 
 const auth = express.Router();
 
@@ -192,6 +198,91 @@ auth.post("/logout", async (req, res) => {
     });
   } catch (error) {
     res.status(500).send(error.toString());
+  }
+});
+
+auth.post("/impersonate", async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) {
+      res.status(400).send({
+        message: errorMessages.user.missingInfo,
+      });
+      return;
+    }
+    const user = await getUserById(parseInt(user_id));
+    if (!user) {
+      res.status(404).send({
+        message: errorMessages.user.notFound,
+      });
+      return;
+    }
+    const jti = uuidv4();
+    const { accessToken } = impersonateTokens(user, jti);
+    res.json({
+      accessToken,
+    });
+  } catch (error) {
+    res.status(500).send(error.toString());
+  }
+});
+
+auth.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      res.status(401).send({
+        message: errorMessages.recoverPassword.missingInfo,
+      });
+    }
+    const user = await getUserByResetToken(token);
+    if (!user) {
+      res.status(500).send({
+        message: errorMessages.recoverPassword.userNotFound,
+      });
+    }
+    const validToken = isRecoveryTokenValid(token, user.user_id);
+    if (!validToken) {
+      res.status(500).send({
+        message: errorMessages.recoverPassword.invalidToken,
+      });
+    }
+    await updatePassword(user.user_id, password);
+    res.status(200).send({
+      message: "OK",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      message: `${error}`,
+    });
+  }
+});
+
+auth.post("/start-password-recovery", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(500).send({
+        message: errorMessages.register.missingInfo,
+      });
+    }
+    const user = await getUserByEmail(email);
+    if (!user) {
+      res.status(500).send({
+        message: errorMessages.register.userNotFound,
+      });
+    }
+    const token = await generateRecoveryToken(user.user_id);
+    await sendPasswordRecoveryEmail(email, token);
+    res.status(200).send({
+      message: "OK",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      message: `${error}`,
+    });
   }
 });
 

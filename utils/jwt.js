@@ -3,9 +3,9 @@ import { PrismaClient } from "@prisma/client";
 import { hashToken } from "../controllers/authController.js";
 const db = new PrismaClient();
 
-export function generateAccessToken(user) {
+export function generateAccessToken(user, expiration = "1d") {
   return jwt.sign({ userId: user.user_id }, process.env.JWT_ACCESS_SECRET, {
-    expiresIn: "1d",
+    expiresIn: expiration,
   });
 }
 
@@ -29,6 +29,14 @@ export function generateTokens(user, jti) {
   return {
     accessToken,
     refreshToken,
+  };
+}
+
+export function impersonateTokens(user, jti) {
+  const accessToken = generateAccessToken(user, "1h");
+
+  return {
+    accessToken,
   };
 }
 
