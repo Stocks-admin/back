@@ -23,6 +23,7 @@ model transactions {
   market           Market?
   transaction_type Transaction_type
   symbol_price     Float?
+  price_currency   String?          @default("USD")
   amount_sold      Float
   transaction_date DateTime         @default(now())
 }

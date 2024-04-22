@@ -13,6 +13,10 @@ import errorMessages from "../constants/errorMessages.js";
 import { convertToUsd } from "../helpers/currencyHelpers.js";
 import moment from "moment";
 import { updateUserSnapshotsFromDate } from "./userController.js";
+import {
+  getCurrentDollarValue,
+  getDollarValueOnDate,
+} from "./currencyController.js";
 
 const db = new PrismaClient();
 
@@ -95,9 +99,6 @@ export async function createTransaction(transactionInfo, user_id) {
           )
         : transactionInfo.symbol_price;
 
-    console.log("symbolPrice", symbolPrice);
-    console.log("symbolBatch", symbolBatch);
-
     const data = {
       ...restTransactionInfo,
       user_id,
@@ -113,13 +114,17 @@ export async function createTransaction(transactionInfo, user_id) {
       });
 
       if (transaction.transaction_type === "sell" && currency === "USD") {
+        const currentPrice = await getDollarValueOnDate(
+          transaction.transaction_date
+        );
         await db.transactions.create({
           data: {
             user_id,
             symbol: "USD",
             amount_sold: transaction.amount_sold * transaction.symbol_price,
-            symbol_price: 1,
+            symbol_price: currentPrice?.value || 1,
             transaction_type: "buy",
+            price_currency: "ARS",
             market: null,
             transaction_date: transaction.transaction_date,
           },
@@ -167,6 +172,30 @@ export async function getSymbolAveragePrice(symbol, user_id) {
   return averagePrice[0].average_price;
 }
 
+const convertPrices = async (averagePrice) => {
+  const result = {};
+
+  for (const item of averagePrice) {
+    const marketKey = item?.market ? item?.market?.toLowerCase() : "Currency";
+    let purchase_price = item.average_price;
+
+    if (item.price_currency === "ARS") {
+      purchase_price = await convertToUsd(
+        purchase_price,
+        item.transaction_date
+      );
+    }
+
+    if (result[item.symbol]) {
+      result[item.symbol][marketKey] = purchase_price;
+    } else {
+      result[item.symbol] = { [marketKey]: purchase_price };
+    }
+  }
+
+  return result;
+};
+
 export async function getPortfolioAveragePrice(user_id) {
   //Se utiliza para calcular el PPP del portfolio
   try {
@@ -174,32 +203,19 @@ export async function getPortfolioAveragePrice(user_id) {
       SELECT
         symbol,
         market,
+        price_currency,
+        transaction_date,
         COALESCE(SUM(amount_sold * symbol_price) / NULLIF(SUM(amount_sold), 0), 1) AS average_price
       FROM
         transactions
       WHERE
         user_id = ${user_id} AND transaction_type = 'buy'
       GROUP BY
-        symbol, market;
+        symbol, market,price_currency,transaction_date;
   `;
 
     if (averagePrice.length > 0) {
-      return averagePrice.reduce((acc, item) => {
-        // Convierte el mercado a minúsculas para el formato de clave
-        const marketKey = item?.market
-          ? item?.market?.toLowerCase()
-          : "Currency";
-
-        // Si el símbolo ya existe en el acumulador, solo añade el mercado y el precio
-        if (acc[item.symbol]) {
-          acc[item.symbol][marketKey] = item.average_price;
-        } else {
-          // Si el símbolo no existe, crea un nuevo objeto
-          acc[item.symbol] = { [marketKey]: item.average_price };
-        }
-
-        return acc;
-      }, {});
+      return await convertPrices(averagePrice);
     }
     return [];
   } catch (error) {
@@ -422,7 +438,6 @@ export const deleteTransaction = async (transactionId, user_id) => {
     // Si la transacción se realiza con éxito, retornar la transacción eliminada
     return transaction;
   } catch (error) {
-    console.log(error);
     // En caso de error, revertir la transacción y lanzar la excepción
     if (transaction) {
       // Recuperar la transacción original
@@ -441,9 +456,6 @@ export const deleteTransaction = async (transactionId, user_id) => {
     }
 
     throw error;
-  } finally {
-    // Cerrar la conexión de la base de datos
-    await db.$disconnect();
   }
 };
 

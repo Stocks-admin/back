@@ -60,11 +60,11 @@ export async function getUserPortfolio(user_id) {
     // DROP TEMPORARY TABLE IF EXISTS en PostgreSQL
     await db.$queryRaw`DROP TABLE IF EXISTS tmp_user_portfolio_updates;`;
     const portfolioPurchasePrice = await getPortfolioAveragePrice(user_id);
+    // console.log("PORTFOLIO PURCHASE PRICE", portfolioPurchasePrice);
     const symbols = portfolio.map((stock) => ({
       symbol: stock.symbol,
       market: stock?.market ? stock.market : null,
     }));
-    console.log("PORTFOLIO", portfolio);
     const prices = await getMultiSymbolPrice(symbols);
     const updatedPortfolio = portfolio.map((stock) => {
       const current = prices.find((price) => price.symbol === stock.symbol);
@@ -94,10 +94,8 @@ export async function getUserPortfolio(user_id) {
         };
       }
     });
-    console.log("UPDATED PORTFOLIO", updatedPortfolio);
     return updatedPortfolio;
   } catch (error) {
-    console.log("PORTFOLIO_ERROR", error);
     return [];
   }
 }
@@ -314,7 +312,7 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
             };
           })
           .catch((error) => {
-            console.log(error);
+            // console.log(error);
             return {
               ...stock,
               current_price: 0,
@@ -327,7 +325,7 @@ export async function getUserPortfolioValueOnDate(user_id, date) {
       0
     );
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     return 0;
   }
 }
@@ -354,11 +352,10 @@ export async function getUserInfo(user_id) {
   }
 }
 
-export async function getUserBenchmark(user_id, interval = "yearly") {
+export async function getUserBenchmark(user_id, interval = "monthly") {
   const intervalSeeked =
-    benchmarkInterval[interval] || benchmarkInterval.yearly;
+    benchmarkInterval[interval] || benchmarkInterval.monthly;
 
-  console.log("Interval seeked: ", intervalSeeked);
   try {
     const portfolioValuesPromises = await Promise.all([
       getUserPortfolioValueOnDate(user_id, intervalSeeked.startDate),
@@ -369,7 +366,6 @@ export async function getUserBenchmark(user_id, interval = "yearly") {
       start: portfolioValuesPromises[0],
       end: portfolioValuesPromises[1],
     };
-    console.log("Portfolio values: ", portfolioValues);
     if (!portfolioValues.start || !portfolioValues.end)
       return { dollar: 0, uva: 0 };
 
@@ -422,6 +418,7 @@ async function getUvaBenchmark(interval, portfolioValues) {
       start: await getUvaValueOnDate(interval.startDate),
       end: await getUvaValueOnDate(interval.endDate),
     };
+    console.log("UVA VALUES: ", uvaValues);
     const uvaVariation =
       ((uvaValues?.end?.value - uvaValues?.start?.value) /
         uvaValues?.start?.value) *
@@ -431,6 +428,7 @@ async function getUvaBenchmark(interval, portfolioValues) {
         100 || 0;
     return portfolioVariation - uvaVariation;
   } catch (error) {
+    console.log(error);
     return 0;
   }
 }
