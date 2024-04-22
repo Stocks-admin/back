@@ -180,10 +180,7 @@ const convertPrices = async (averagePrice) => {
     let purchase_price = item.average_price;
 
     if (item.price_currency === "ARS") {
-      purchase_price = await convertToUsd(
-        purchase_price,
-        item.transaction_date
-      );
+      purchase_price = await convertToUsd(purchase_price);
     }
 
     if (result[item.symbol]) {
@@ -204,14 +201,13 @@ export async function getPortfolioAveragePrice(user_id) {
         symbol,
         market,
         price_currency,
-        transaction_date,
         COALESCE(SUM(amount_sold * symbol_price) / NULLIF(SUM(amount_sold), 0), 1) AS average_price
       FROM
         transactions
       WHERE
         user_id = ${user_id} AND transaction_type = 'buy'
       GROUP BY
-        symbol, market,price_currency,transaction_date;
+        symbol, market,price_currency;
   `;
 
     if (averagePrice.length > 0) {
@@ -354,10 +350,10 @@ export async function massiveLoadTransactionsCocos(
     const batch = await getSymbolBatch(symbol);
     const parsedTransactions = transactionsFile
       .filter((transaction) => {
-        if (transaction.length < 5) {
+        if (transaction.length < 5 && transaction[1] !== "Canje ratio cedear") {
           return false;
         }
-        const transaction_type = transaction[1] === "Compra" ? "buy" : "sell";
+        const transaction_type = transaction[2] >= 0 ? "buy" : "sell";
         const amount_sold =
           transaction[2] < 0 ? transaction[2] * -1 : transaction[2];
         const symbolPrice = transaction[3];
