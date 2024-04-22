@@ -17,11 +17,20 @@ export async function convertToUsd(amount, date = moment().format()) {
   let exchangeRate = 1;
 
   if (moment(date).isAfter(moment().startOf("day"))) {
-    exchangeRate = (await getCurrentDollarValue(date)).value;
+    return getCurrentDollarValue(date)
+      .then((resp) => {
+        return amount / resp.value;
+      })
+      .catch(() => {
+        return amount / exchangeRate;
+      });
   } else {
-    exchangeRate = (
-      await getDollarValueOnDate(moment(date).format("YYYY-MM-DD"))
-    ).value;
+    return getDollarValueOnDate(moment(date).format("YYYY-MM-DD"))
+      .then((resp) => {
+        return amount / resp.value;
+      })
+      .catch(() => {
+        return amount / exchangeRate;
+      });
   }
-  return amount / exchangeRate;
 }
