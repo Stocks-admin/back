@@ -376,7 +376,7 @@ export async function massiveLoadTransactionsCocos(
         const symbolPrice = parseFloat(transaction[3]);
         const currency = transaction[4];
         const symbol_price =
-          currency === "ARS"
+          !currency || currency === "ARS"
             ? await convertToUsd(symbolPrice / batch, transaction[0])
             : symbolPrice / batch;
         const transaction_date = moment(transaction[0], "YYYY-MM-DD").format();
