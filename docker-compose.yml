@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  matiasduranapi:
+  butterback:
     container_name: butterback
     depends_on:
       - postgresdb
