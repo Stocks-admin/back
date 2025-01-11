@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  matiasduranapi:
+    container_name: butterback
+    depends_on:
+      - postgresdb
+    image: butter/back:latest
+    restart: always
+    networks:
+      - my_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.butterback.rule=Host(`api.butterstocks.info`)"
+      - "traefik.http.services.butterback.loadbalancer.server.port=5000"
+      - "traefik.http.routers.butterback.entrypoints=websecure"  # Asegura HTTPS
+      - "traefik.http.routers.butterback.tls.certresolver=cloudflare"  # Resolver TLSs
+    stdin_open: true
+    tty: true
+  postgresdb:
+    image: postgres:13
+    container_name: postgresdb
+    restart: always
+    networks:
+      - my_network
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+
+networks:
+  my_network:
+    external: true
+
+
+volumes:
+  db:
